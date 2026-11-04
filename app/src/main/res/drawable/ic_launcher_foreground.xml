@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Dumbbell icon foreground -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M24,44 h8 v20 h-8 z M76,44 h8 v20 h-8 z M32,48 h4 v12 h-4 z M72,48 h4 v12 h-4 z M36,52 h36 v4 h-36 z" />
+</vector>

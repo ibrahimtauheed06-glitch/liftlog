@@ -1,0 +1,263 @@
+package com.liftlog.ui.more.exercise
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.liftlog.data.entity.Exercise
+import com.liftlog.ui.theme.DarkBorder
+import com.liftlog.ui.theme.PrimaryBlue
+import com.liftlog.ui.theme.TextSecondary
+
+@Composable
+fun ExerciseEditDialog(
+    exercise: Exercise?,
+    onSave: (Exercise) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(exercise?.name ?: "") }
+    var equipment by remember { mutableStateOf(exercise?.equipment ?: "barbell") }
+    var incrementKgText by remember { mutableStateOf(exercise?.incrementKg?.toString() ?: "2.5") }
+    var plateKgText by remember { mutableStateOf(exercise?.plateKg?.toString() ?: "") }
+    var repLoText by remember { mutableStateOf(exercise?.repLo?.toString() ?: "5") }
+    var repHiText by remember { mutableStateOf(exercise?.repHi?.toString() ?: "8") }
+    var defaultSetsText by remember { mutableStateOf(exercise?.defaultSets?.toString() ?: "3") }
+    var restSecText by remember { mutableStateOf(exercise?.restSec?.toString() ?: "150") }
+    var isCompound by remember { mutableStateOf(exercise?.isCompound ?: true) }
+    var bwFactor by remember { mutableStateOf(exercise?.bwFactor ?: 0.0) }
+    var primaryMuscles by remember { mutableStateOf(exercise?.primaryMuscles ?: "") }
+    var secondaryMuscles by remember { mutableStateOf(exercise?.secondaryMuscles ?: "") }
+    var setupNote by remember { mutableStateOf(exercise?.setupNote ?: "") }
+    var homeCapKgText by remember { mutableStateOf(exercise?.homeCapKg?.toString() ?: "") }
+
+    val equipments = listOf("barbell", "dumbbell", "cable", "machine", "bodyweight")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (exercise == null) "New Exercise" else "Edit Exercise",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Exercise Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text("Equipment", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    equipments.forEach { eq ->
+                        val isSelected = equipment.equals(eq, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isSelected) PrimaryBlue else DarkBorder)
+                                .clickable {
+                                    equipment = eq
+                                    if (eq == "bodyweight") bwFactor = 1.0 else if (bwFactor == 1.0 && eq != "bodyweight") bwFactor = 0.0
+                                }
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = eq.capitalize(java.util.Locale.ROOT),
+                                color = if (isSelected) Color.Black else TextSecondary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = incrementKgText,
+                        onValueChange = { incrementKgText = it },
+                        label = { Text("Increment (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = plateKgText,
+                        onValueChange = { plateKgText = it },
+                        label = { Text("Plate / Pin (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = repLoText,
+                        onValueChange = { repLoText = it },
+                        label = { Text("Rep Low") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = repHiText,
+                        onValueChange = { repHiText = it },
+                        label = { Text("Rep High") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = defaultSetsText,
+                        onValueChange = { defaultSetsText = it },
+                        label = { Text("Sets") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = restSecText,
+                        onValueChange = { restSecText = it },
+                        label = { Text("Rest (sec)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = homeCapKgText,
+                        onValueChange = { homeCapKgText = it },
+                        label = { Text("Home Cap (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isCompound, onCheckedChange = { isCompound = it })
+                    Text("Compound lift (gets warm-up prefill & 150s rest)")
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = bwFactor == 1.0, onCheckedChange = { bwFactor = if (it) 1.0 else 0.0 })
+                    Text("Add bodyweight to load (e.g. pullups/dips)")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = primaryMuscles,
+                    onValueChange = { primaryMuscles = it },
+                    label = { Text("Primary Muscles (comma-separated)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = secondaryMuscles,
+                    onValueChange = { secondaryMuscles = it },
+                    label = { Text("Secondary Muscles (0.5 set volume)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = setupNote,
+                    onValueChange = { setupNote = it },
+                    label = { Text("Setup Note") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        val inc = incrementKgText.toDoubleOrNull() ?: 2.5
+                        val plate = plateKgText.toDoubleOrNull()
+                        val rLo = repLoText.toIntOrNull() ?: 5
+                        val rHi = repHiText.toIntOrNull() ?: 8
+                        val dSets = defaultSetsText.toIntOrNull() ?: 3
+                        val rest = restSecText.toIntOrNull() ?: 150
+                        val homeCap = homeCapKgText.toDoubleOrNull()
+
+                        val updated = (exercise ?: Exercise(name = name, equipment = equipment)).copy(
+                            name = name.trim(),
+                            equipment = equipment,
+                            incrementKg = inc,
+                            plateKg = plate,
+                            repLo = rLo,
+                            repHi = rHi,
+                            defaultSets = dSets,
+                            restSec = rest,
+                            isCompound = isCompound,
+                            bwFactor = bwFactor,
+                            primaryMuscles = primaryMuscles.trim(),
+                            secondaryMuscles = secondaryMuscles.trim(),
+                            setupNote = if (setupNote.isBlank()) null else setupNote.trim(),
+                            homeCapKg = homeCap
+                        )
+                        onSave(updated)
+                    }
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
