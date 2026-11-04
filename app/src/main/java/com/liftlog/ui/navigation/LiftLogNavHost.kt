@@ -183,7 +183,12 @@ fun LiftLogNavHost(
                 ActiveWorkoutScreen(
                     viewModel = activeViewModel,
                     settings = settings,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        navController.navigate(Screen.Train.route) {
+                            popUpTo(Screen.Train.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 

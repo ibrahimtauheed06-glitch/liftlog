@@ -50,6 +50,12 @@ interface WorkoutDao {
     @Query("UPDATE workouts SET isDiscarded = 0 WHERE id = :id")
     suspend fun restoreWorkout(id: Long)
 
+    @Query("DELETE FROM workouts WHERE endTs IS NULL AND (SELECT COUNT(*) FROM set_entries WHERE set_entries.workoutId = workouts.id) = 0")
+    suspend fun cleanEmptyUnfinishedWorkouts()
+
+    @Query("UPDATE workouts SET endTs = :endTs WHERE endTs IS NULL")
+    suspend fun closeAllOpenWorkouts(endTs: Long)
+
     @Query("DELETE FROM workouts WHERE id = :id")
     suspend fun deleteWorkout(id: Long)
 }

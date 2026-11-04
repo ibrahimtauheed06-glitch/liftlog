@@ -19,8 +19,12 @@ import com.liftlog.engine.SetData
 import com.liftlog.engine.WarmupCalculator
 import com.liftlog.engine.WarmupSetTarget
 import com.liftlog.engine.WorkoutPhase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 data class ExerciseInWorkout(
     val exercise: Exercise,
@@ -42,13 +46,31 @@ class WorkoutRepository(
     private val settingsRepository: SettingsRepository
 ) {
 
-    fun getActiveWorkoutFlow(): Flow<Workout?> = workoutDao.getActiveWorkoutFlow()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun getActiveWorkoutFlow(): Flow<Workout?> = settingsRepository.settingsFlow.flatMapLatest { settings ->
+        val activeId = settings.activeWorkoutId
+        if (activeId == null) {
+            flowOf(null)
+        } else {
+            workoutDao.getWorkoutByIdFlow(activeId).map { workout ->
+                if (workout != null && workout.endTs == null && !workout.isDiscarded) workout else null
+            }
+        }
+    }
 
     fun getSetsForWorkoutFlow(workoutId: Long): Flow<List<SetEntry>> = setEntryDao.getSetsForWorkout(workoutId)
 
-    suspend fun getActiveWorkout(): Workout? = workoutDao.getActiveWorkout()
+    suspend fun getActiveWorkout(): Workout? {
+        val settings = settingsRepository.settingsFlow.first()
+        val activeId = settings.activeWorkoutId ?: return null
+        val workout = workoutDao.getWorkoutById(activeId)
+        return if (workout != null && workout.endTs == null && !workout.isDiscarded) workout else null
+    }
+
+    suspend fun getWorkoutById(workoutId: Long): Workout? = workoutDao.getWorkoutById(workoutId)
 
     suspend fun startWorkout(templateId: Long?): Long {
+        workoutDao.cleanEmptyUnfinishedWorkouts()
         val now = System.currentTimeMillis()
         val workout = Workout(
             templateId = templateId,
@@ -65,19 +87,31 @@ class WorkoutRepository(
         val now = System.currentTimeMillis()
         workoutDao.completeWorkout(workoutId, now, note)
         settingsRepository.setActiveWorkoutId(null)
+        workoutDao.cleanEmptyUnfinishedWorkouts()
     }
 
     suspend fun cancelActiveWorkout(workoutId: Long) {
         workoutDao.deleteWorkout(workoutId)
         settingsRepository.setActiveWorkoutId(null)
+        workoutDao.cleanEmptyUnfinishedWorkouts()
     }
 
     fun getDiscardedWorkoutsFlow(): Flow<List<Workout>> = workoutDao.getDiscardedWorkoutsFlow()
 
     suspend fun discardWorkout(workoutId: Long) {
         val now = System.currentTimeMillis()
-        workoutDao.discardWorkout(workoutId, now)
+        val loggedSets = setEntryDao.getSetsForWorkoutSync(workoutId)
+        if (loggedSets.isEmpty()) {
+            workoutDao.deleteWorkout(workoutId)
+        } else {
+            workoutDao.discardWorkout(workoutId, now)
+        }
         settingsRepository.setActiveWorkoutId(null)
+        workoutDao.cleanEmptyUnfinishedWorkouts()
+    }
+
+    suspend fun cleanEmptyUnfinishedWorkouts() {
+        workoutDao.cleanEmptyUnfinishedWorkouts()
     }
 
     suspend fun restoreWorkout(workoutId: Long) {

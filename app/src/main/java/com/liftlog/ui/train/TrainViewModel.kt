@@ -89,7 +89,9 @@ class TrainViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrainUiState(isLoading = true))
 
     init {
-        // Backup overdue is observed reactively via backupRepository.isBackupOverdueFlow()
+        viewModelScope.launch {
+            workoutRepository.cleanEmptyUnfinishedWorkouts()
+        }
     }
 
     fun startWorkout(templateId: Long?, onStarted: (Long) -> Unit) {

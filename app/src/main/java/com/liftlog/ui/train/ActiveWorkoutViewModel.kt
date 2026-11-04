@@ -51,7 +51,7 @@ class ActiveWorkoutViewModel(
 
     fun loadWorkoutData() {
         viewModelScope.launch {
-            val workout = workoutRepository.getActiveWorkout()
+            val workout = workoutRepository.getWorkoutById(workoutId)
             val exercisesInWorkout = workoutRepository.prepareWorkoutExercises(workoutId)
             val currentInputs = _uiState.value.prefilledInputs.toMutableMap()
 
