@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -58,6 +59,10 @@ fun StatsScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadStats()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -188,8 +193,13 @@ fun StatsScreen(
                                         color = PrimaryBlue
                                     )
                                 )
+                                val proteinSubtitle = if (state.proteinDaysTracked > 0) {
+                                    "${state.proteinDaysHit}/${state.proteinDaysTracked} days hit"
+                                } else {
+                                    "0 days hit"
+                                }
                                 Text(
-                                    "${state.proteinDaysHit} days hit",
+                                    proteinSubtitle,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextMuted
                                 )

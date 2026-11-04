@@ -30,6 +30,9 @@ interface SetEntryDao {
     suspend fun getSetsBetween(startTs: Long, endTs: Long): List<SetEntry>
 
     @Query("SELECT * FROM set_entries ORDER BY ts DESC")
+    fun getAllSetsFlow(): Flow<List<SetEntry>>
+
+    @Query("SELECT * FROM set_entries ORDER BY ts DESC")
     suspend fun getAllSetsSync(): List<SetEntry>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
