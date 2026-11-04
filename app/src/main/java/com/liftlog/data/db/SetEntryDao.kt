@@ -44,6 +44,9 @@ interface SetEntryDao {
     @Query("DELETE FROM set_entries WHERE id = :id")
     suspend fun deleteSet(id: Long)
 
+    @Query("DELETE FROM set_entries WHERE workoutId = :workoutId AND exerciseId = :exerciseId")
+    suspend fun deleteSetsForExerciseInWorkout(workoutId: Long, exerciseId: Long)
+
     @Query("UPDATE set_entries SET exerciseId = :targetExerciseId WHERE exerciseId = :sourceExerciseId")
     suspend fun reassignExerciseSets(sourceExerciseId: Long, targetExerciseId: Long)
 }

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
@@ -80,6 +81,16 @@ fun MoreScreen(
                     color = TextSecondary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            item {
+                MoreMenuItem(
+                    icon = Icons.Default.History,
+                    iconTint = PrimaryBlue,
+                    title = "Workout History",
+                    subtitle = "View past sessions, edit weights/reps, or remove workouts",
+                    onClick = { onNavigate(Screen.WorkoutHistory.route) }
+                )
             }
 
             item {

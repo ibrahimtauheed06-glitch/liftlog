@@ -31,6 +31,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.liftlog.AppContainer
 import com.liftlog.data.repository.UserSettings
+import com.liftlog.ui.history.WorkoutDetailScreen
+import com.liftlog.ui.history.WorkoutDetailViewModel
+import com.liftlog.ui.history.WorkoutHistoryScreen
+import com.liftlog.ui.history.WorkoutHistoryViewModel
 import com.liftlog.ui.more.MoreScreen
 import com.liftlog.ui.more.backup.BackupScreen
 import com.liftlog.ui.more.bin.RecycleBinScreen
@@ -76,9 +80,10 @@ fun LiftLogNavHost(
         BottomNavItem(Screen.More, Icons.Default.MoreHoriz, "More")
     )
 
-    // Hide bottom navigation bar on active workout and preview screens
+    // Hide bottom navigation bar on active workout, preview, and workout detail screens
     val showBottomBar = currentRoute?.startsWith("active_workout") != true &&
-            currentRoute?.startsWith("workout_preview") != true
+            currentRoute?.startsWith("workout_preview") != true &&
+            currentRoute?.startsWith("workout_detail") != true
 
     Scaffold(
         modifier = modifier,
@@ -141,6 +146,9 @@ fun LiftLogNavHost(
                     },
                     onNavigateToPreview = { templateId ->
                         navController.navigate(Screen.WorkoutPreview.createRoute(templateId))
+                    },
+                    onNavigateToHistory = {
+                        navController.navigate(Screen.WorkoutHistory.route)
                     },
                     onNavigateToBackup = {
                         navController.navigate(Screen.Backup.route)
@@ -213,7 +221,51 @@ fun LiftLogNavHost(
                         settingsRepository = container.settingsRepository
                     )
                 )
-                StatsScreen(viewModel = statsViewModel)
+                StatsScreen(
+                    viewModel = statsViewModel,
+                    onNavigateToHistory = {
+                        navController.navigate(Screen.WorkoutHistory.route)
+                    }
+                )
+            }
+
+            composable(Screen.WorkoutHistory.route) {
+                val historyViewModel: WorkoutHistoryViewModel = viewModel(
+                    factory = WorkoutHistoryViewModel.Factory(
+                        workoutRepository = container.workoutRepository,
+                        templateDao = container.database.templateDao(),
+                        exerciseDao = container.database.exerciseDao(),
+                        setEntryDao = container.database.setEntryDao()
+                    )
+                )
+                WorkoutHistoryScreen(
+                    viewModel = historyViewModel,
+                    onNavigateToDetail = { workoutId ->
+                        navController.navigate(Screen.WorkoutDetail.createRoute(workoutId))
+                    },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Screen.WorkoutDetail.route,
+                arguments = listOf(navArgument("workoutId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val workoutId = backStackEntry.arguments?.getLong("workoutId") ?: 0L
+                val detailViewModel: WorkoutDetailViewModel = viewModel(
+                    key = "detail_$workoutId",
+                    factory = WorkoutDetailViewModel.Factory(
+                        workoutId = workoutId,
+                        workoutRepository = container.workoutRepository,
+                        templateDao = container.database.templateDao(),
+                        exerciseDao = container.database.exerciseDao(),
+                        setEntryDao = container.database.setEntryDao()
+                    )
+                )
+                WorkoutDetailScreen(
+                    viewModel = detailViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
 
             composable(Screen.More.route) {

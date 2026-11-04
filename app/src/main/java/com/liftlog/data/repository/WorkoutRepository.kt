@@ -69,8 +69,14 @@ class WorkoutRepository(
 
     suspend fun getWorkoutById(workoutId: Long): Workout? = workoutDao.getWorkoutById(workoutId)
 
+    fun getCompletedWorkoutsFlow(): Flow<List<Workout>> = workoutDao.getCompletedWorkoutsFlow()
+
+    suspend fun cleanAllEmptyWorkouts(excludeActiveId: Long = -1L) {
+        workoutDao.cleanAllEmptyWorkouts(excludeActiveId)
+    }
+
     suspend fun startWorkout(templateId: Long?): Long {
-        workoutDao.cleanEmptyUnfinishedWorkouts()
+        cleanAllEmptyWorkouts()
         val now = System.currentTimeMillis()
         val workout = Workout(
             templateId = templateId,
@@ -84,16 +90,21 @@ class WorkoutRepository(
     }
 
     suspend fun finishWorkout(workoutId: Long, note: String?) {
-        val now = System.currentTimeMillis()
-        workoutDao.completeWorkout(workoutId, now, note)
+        val loggedSets = setEntryDao.getSetsForWorkoutSync(workoutId)
+        if (loggedSets.isEmpty()) {
+            workoutDao.deleteWorkout(workoutId)
+        } else {
+            val now = System.currentTimeMillis()
+            workoutDao.completeWorkout(workoutId, now, note)
+        }
         settingsRepository.setActiveWorkoutId(null)
-        workoutDao.cleanEmptyUnfinishedWorkouts()
+        cleanAllEmptyWorkouts()
     }
 
     suspend fun cancelActiveWorkout(workoutId: Long) {
         workoutDao.deleteWorkout(workoutId)
         settingsRepository.setActiveWorkoutId(null)
-        workoutDao.cleanEmptyUnfinishedWorkouts()
+        cleanAllEmptyWorkouts()
     }
 
     fun getDiscardedWorkoutsFlow(): Flow<List<Workout>> = workoutDao.getDiscardedWorkoutsFlow()
@@ -107,11 +118,20 @@ class WorkoutRepository(
             workoutDao.discardWorkout(workoutId, now)
         }
         settingsRepository.setActiveWorkoutId(null)
-        workoutDao.cleanEmptyUnfinishedWorkouts()
+        cleanAllEmptyWorkouts()
     }
 
     suspend fun cleanEmptyUnfinishedWorkouts() {
-        workoutDao.cleanEmptyUnfinishedWorkouts()
+        cleanAllEmptyWorkouts()
+    }
+
+    suspend fun deleteExerciseFromWorkout(workoutId: Long, exerciseId: Long) {
+        setEntryDao.deleteSetsForExerciseInWorkout(workoutId, exerciseId)
+    }
+
+    suspend fun updateWorkoutNote(workoutId: Long, note: String?) {
+        val workout = workoutDao.getWorkoutById(workoutId) ?: return
+        workoutDao.updateWorkout(workout.copy(note = note))
     }
 
     suspend fun restoreWorkout(workoutId: Long) {

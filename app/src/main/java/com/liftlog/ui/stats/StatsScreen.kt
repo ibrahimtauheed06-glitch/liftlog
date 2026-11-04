@@ -12,14 +12,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -50,6 +54,7 @@ import com.liftlog.ui.theme.TextSecondary
 @Composable
 fun StatsScreen(
     viewModel: StatsViewModel,
+    onNavigateToHistory: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -147,8 +152,22 @@ fun StatsScreen(
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Sessions", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.clickable(enabled = onNavigateToHistory != null) { onNavigateToHistory?.invoke() }
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Sessions", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                    if (onNavigateToHistory != null) {
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                            contentDescription = null,
+                                            tint = TextMuted,
+                                            modifier = Modifier.size(8.dp)
+                                        )
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     "${state.sessionsDone}/${state.sessionsTarget}",
