@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
         BodyweightEntry::class,
         RunEntry::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class LiftLogDatabase : RoomDatabase() {
@@ -62,6 +62,13 @@ abstract class LiftLogDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `workouts` ADD COLUMN `isDiscarded` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `exercises` ADD COLUMN `defaultWeightKg` REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         fun getInstance(context: Context): LiftLogDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -69,7 +76,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                     LiftLogDatabase::class.java,
                     "liftlog.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

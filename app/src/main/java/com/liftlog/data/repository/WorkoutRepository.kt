@@ -72,6 +72,22 @@ class WorkoutRepository(
         settingsRepository.setActiveWorkoutId(null)
     }
 
+    fun getDiscardedWorkoutsFlow(): Flow<List<Workout>> = workoutDao.getDiscardedWorkoutsFlow()
+
+    suspend fun discardWorkout(workoutId: Long) {
+        val now = System.currentTimeMillis()
+        workoutDao.discardWorkout(workoutId, now)
+        settingsRepository.setActiveWorkoutId(null)
+    }
+
+    suspend fun restoreWorkout(workoutId: Long) {
+        workoutDao.restoreWorkout(workoutId)
+    }
+
+    suspend fun permanentlyDeleteWorkout(workoutId: Long) {
+        workoutDao.deleteWorkout(workoutId)
+    }
+
     suspend fun logSet(
         workoutId: Long,
         exerciseId: Long,
@@ -191,13 +207,19 @@ class WorkoutRepository(
                 homeCapKg = ex.homeCapKg
             )
 
-            val nextTarget = ProgressionEngine.computeNextTarget(
+            val computedTarget = ProgressionEngine.computeNextTarget(
                 exercise = config,
                 sessions = sessionsData,
                 currentPhase = phase,
                 isDeloadActive = isDeloadActive,
                 bodyweight7DayAvg = bwAvg
             )
+
+            val nextTarget = if (sessionsData.isEmpty() && ex.defaultWeightKg > 0.0 && computedTarget.targetWeightKg == 0.0) {
+                computedTarget.copy(targetWeightKg = ex.defaultWeightKg)
+            } else {
+                computedTarget
+            }
 
             // Warmup calculation:
             // "The first compound of each workout gets one prefilled warm-up set at 60% of the target weight"

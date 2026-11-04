@@ -14,6 +14,7 @@ data class Exercise(
     val repLo: Int = 5,
     val repHi: Int = 8,
     val defaultSets: Int = 3,
+    val defaultWeightKg: Double = 0.0,
     val restSec: Int = 150,
     val isCompound: Boolean = true,
     val bwFactor: Double = 0.0, // 0.0 or 1.0

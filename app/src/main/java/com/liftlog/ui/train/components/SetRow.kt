@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,31 +17,42 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.liftlog.data.entity.SetEntry
 import com.liftlog.ui.theme.DangerRed
 import com.liftlog.ui.theme.DarkBorder
+import com.liftlog.ui.theme.DarkSurface
 import com.liftlog.ui.theme.DarkSurfaceVariant
 import com.liftlog.ui.theme.PrimaryBlue
 import com.liftlog.ui.theme.SuccessGreen
@@ -104,10 +117,10 @@ fun LoggedSetItem(
             }
 
             if (set.rpe != null) {
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "@${set.rpe}",
-                    style = MaterialTheme.typography.bodySmall.copy(color = PrimaryBlue, fontWeight = FontWeight.Medium)
+                    style = MaterialTheme.typography.bodySmall.copy(color = TertiaryAmber, fontWeight = FontWeight.Bold)
                 )
             }
         }
@@ -135,6 +148,7 @@ fun LoggedSetItem(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CurrentSetInputRow(
     setIndex: Int,
@@ -143,12 +157,13 @@ fun CurrentSetInputRow(
     incrementKg: Double,
     onAdjustWeight: (Double) -> Unit,
     onAdjustReps: (Int) -> Unit,
+    onDirectWeightChange: (Double) -> Unit,
+    onDirectRepsChange: (Int) -> Unit,
     onSetType: (String) -> Unit,
     onSetRpe: (Double) -> Unit,
     onToggleSwung: () -> Unit,
     onTogglePain: () -> Unit,
     onLogSet: () -> Unit,
-    onOpenPlateCalculator: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -158,13 +173,13 @@ fun CurrentSetInputRow(
             .background(DarkSurfaceVariant)
             .padding(12.dp)
     ) {
-        // Top: Steppers for Weight and Reps
+        // Top: Direct Keyboard + Steppers for Weight and Reps
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Weight Stepper
+            // Weight Column
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("WEIGHT (KG)", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -172,7 +187,7 @@ fun CurrentSetInputRow(
                     IconButton(
                         onClick = { onAdjustWeight(-incrementKg) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(DarkBorder),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = TextPrimary)
@@ -180,19 +195,42 @@ fun CurrentSetInputRow(
                         Icon(Icons.Default.Remove, contentDescription = "Decrease weight")
                     }
 
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     val weightText = if (input.weightKg % 1.0 == 0.0) input.weightKg.toInt().toString() else input.weightKg.toString()
-                    Text(
-                        text = "${weightText}kg",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary),
+                    var editWeightStr by remember(input.weightKg) { mutableStateOf(weightText) }
+
+                    OutlinedTextField(
+                        value = editWeightStr,
+                        onValueChange = { newVal ->
+                            editWeightStr = newVal
+                            newVal.toDoubleOrNull()?.let { onDirectWeightChange(it) }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryBlue,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkSurface,
+                            unfocusedContainerColor = DarkSurface
+                        ),
                         modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .clickable { onOpenPlateCalculator() }
+                            .width(76.dp)
+                            .height(50.dp)
                     )
+
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     IconButton(
                         onClick = { onAdjustWeight(incrementKg) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(DarkBorder),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = TextPrimary)
@@ -202,7 +240,7 @@ fun CurrentSetInputRow(
                 }
             }
 
-            // Reps Stepper
+            // Reps Column
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("REPS", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -210,7 +248,7 @@ fun CurrentSetInputRow(
                     IconButton(
                         onClick = { onAdjustReps(-1) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(DarkBorder),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = TextPrimary)
@@ -218,16 +256,41 @@ fun CurrentSetInputRow(
                         Icon(Icons.Default.Remove, contentDescription = "Decrease reps")
                     }
 
-                    Text(
-                        text = "${input.reps}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = TextPrimary),
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    var editRepsStr by remember(input.reps) { mutableStateOf(input.reps.toString()) }
+
+                    OutlinedTextField(
+                        value = editRepsStr,
+                        onValueChange = { newVal ->
+                            editRepsStr = newVal
+                            newVal.toIntOrNull()?.let { onDirectRepsChange(it) }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            textAlign = TextAlign.Center
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryBlue,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkSurface,
+                            unfocusedContainerColor = DarkSurface
+                        ),
+                        modifier = Modifier
+                            .width(64.dp)
+                            .height(50.dp)
                     )
+
+                    Spacer(modifier = Modifier.width(4.dp))
 
                     IconButton(
                         onClick = { onAdjustReps(1) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(RoundedCornerShape(8.dp))
                             .background(DarkBorder),
                         colors = IconButtonDefaults.iconButtonColors(contentColor = TextPrimary)
@@ -240,113 +303,112 @@ fun CurrentSetInputRow(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Middle Row: Type Toggle, RPE Chip (if last set), Swung, Pain
+        // Set Type Selector (Working / Warmup / Drop)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Type toggle (Warmup / Working / Drop)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf("working", "warmup", "drop").forEach { typeName ->
-                    val isSelected = input.type.equals(typeName, ignoreCase = true)
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSelected) PrimaryBlue else DarkBorder)
-                            .clickable { onSetType(typeName) }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = typeName.capitalize(java.util.Locale.ROOT),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) Color.Black else TextSecondary
-                            )
-                        )
-                    }
-                }
-            }
-
-            // Flag Chips
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                // RPE Chip (appears only on the last planned set, default 9, one tap to change)
-                if (isLastPlannedSet) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .border(1.dp, PrimaryBlue, RoundedCornerShape(6.dp))
-                            .background(DarkSurfaceVariant)
-                            .clickable {
-                                // Cycle: 7.0 -> 7.5 -> 8.0 -> 8.5 -> 9.0 -> 9.5 -> 10.0 -> 7.0
-                                val nextRpe = if (input.rpe >= 10.0) 7.0 else input.rpe + 0.5
-                                onSetRpe(nextRpe)
-                            }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "@${input.rpe}",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
-                        )
-                    }
-                }
-
-                // Swung Chip
+            listOf("working", "warmup", "drop").forEach { type ->
+                val selected = input.type == type
                 Box(
                     modifier = Modifier
+                        .weight(1f)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(if (input.flagSwung) TertiaryAmber else DarkBorder)
-                        .clickable { onToggleSwung() }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .background(if (selected) PrimaryBlue else DarkBorder)
+                        .clickable { onSetType(type) }
+                        .padding(vertical = 6.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Swung",
+                        text = type.uppercase(),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = if (input.flagSwung) FontWeight.Bold else FontWeight.Normal,
-                            color = if (input.flagSwung) Color.Black else TextSecondary
-                        )
-                    )
-                }
-
-                // Pain Chip
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (input.flagPain) DangerRed else DarkBorder)
-                        .clickable { onTogglePain() }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Pain",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = if (input.flagPain) FontWeight.Bold else FontWeight.Normal,
-                            color = if (input.flagPain) Color.White else TextSecondary
+                            fontWeight = FontWeight.Bold,
+                            color = if (selected) Color.Black else TextSecondary
                         )
                     )
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Flags & RPE Row
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // RPE chip (appears on the last planned set)
+            if (isLastPlannedSet && input.type == "working") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("RPE: ", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+                    listOf(7.0, 8.0, 9.0, 10.0).forEach { rpeVal ->
+                        val isSelected = input.rpe == rpeVal
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = if (isSelected) TertiaryAmber else DarkBorder,
+                            modifier = Modifier
+                                .padding(end = 4.dp)
+                                .clickable { onSetRpe(rpeVal) }
+                        ) {
+                            Text(
+                                text = if (rpeVal % 1.0 == 0.0) rpeVal.toInt().toString() else rpeVal.toString(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.Black else TextSecondary
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Flag Swung
+            FilterChip(
+                selected = input.flagSwung,
+                onClick = onToggleSwung,
+                label = { Text("Swung") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = TertiaryAmber.copy(alpha = 0.3f),
+                    selectedLabelColor = TertiaryAmber
+                )
+            )
+
+            // Flag Pain
+            FilterChip(
+                selected = input.flagPain,
+                onClick = onTogglePain,
+                label = { Text("Pain") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = DangerRed.copy(alpha = 0.3f),
+                    selectedLabelColor = DangerRed
+                )
+            )
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Large LOG SET Button (Speed: max 2 taps)
+        // Log Set Button (Big, prominent, 1-tap logging)
         Button(
             onClick = onLogSet,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (input.type == "warmup") TertiaryAmber else SuccessGreen,
-                contentColor = Color.Black
-            ),
+            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
         ) {
-            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "LOG SET $setIndex (${input.weightKg}kg × ${input.reps})",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "LOG SET $setIndex",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                )
+            }
         }
     }
 }

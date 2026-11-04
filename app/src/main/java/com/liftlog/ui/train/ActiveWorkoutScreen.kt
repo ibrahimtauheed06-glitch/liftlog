@@ -2,7 +2,7 @@ package com.liftlog.ui.train
 
 import android.app.Activity
 import android.view.WindowManager
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,13 +39,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,15 +60,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.liftlog.data.repository.UserSettings
 import com.liftlog.service.RestTimerService
+import com.liftlog.ui.theme.DangerRed
 import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
+import com.liftlog.ui.theme.DarkSurfaceVariant
 import com.liftlog.ui.theme.PrimaryBlue
 import com.liftlog.ui.theme.SuccessGreen
 import com.liftlog.ui.theme.TertiaryAmber
+import com.liftlog.ui.theme.TextMuted
 import com.liftlog.ui.theme.TextPrimary
 import com.liftlog.ui.theme.TextSecondary
 import com.liftlog.ui.train.components.ExerciseCard
 import com.liftlog.ui.train.components.RestTimerBanner
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +87,7 @@ fun ActiveWorkoutScreen(
     val context = LocalContext.current
 
     var showFinishDialog by remember { mutableStateOf(false) }
-    var showCancelDialog by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     var workoutNote by remember { mutableStateOf("") }
 
     // Screen stays on during active workout
@@ -91,15 +99,53 @@ fun ActiveWorkoutScreen(
         }
     }
 
+    // Overall Elapsed Workout Timer (computes from startTs)
+    val startTs = state.workout?.startTs ?: remember { System.currentTimeMillis() }
+    var elapsedSeconds by remember(startTs) {
+        mutableLongStateOf(((System.currentTimeMillis() - startTs) / 1000L).coerceAtLeast(0L))
+    }
+    LaunchedEffect(startTs) {
+        while (true) {
+            elapsedSeconds = ((System.currentTimeMillis() - startTs) / 1000L).coerceAtLeast(0L)
+            delay(1000L)
+        }
+    }
+    val hours = elapsedSeconds / 3600
+    val minutes = (elapsedSeconds % 3600) / 60
+    val seconds = elapsedSeconds % 60
+    val formattedDuration = if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format("%02d:%02d", minutes, seconds)
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Active Workout",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Active Workout",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Timer,
+                                contentDescription = null,
+                                tint = PrimaryBlue,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = formattedDuration,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = PrimaryBlue
+                                )
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -197,10 +243,10 @@ fun ActiveWorkoutScreen(
                             item = item,
                             currentInput = input,
                             supersetLabel = supersetLabel,
-                            availablePlates = settings.parsePlates(),
-                            barWeightKg = settings.barWeight,
                             onAdjustWeight = { delta -> viewModel.adjustWeight(item.exercise.id, delta) },
                             onAdjustReps = { delta -> viewModel.adjustReps(item.exercise.id, delta) },
+                            onDirectWeightChange = { weight -> viewModel.setWeightDirect(item.exercise.id, weight) },
+                            onDirectRepsChange = { reps -> viewModel.setRepsDirect(item.exercise.id, reps) },
                             onSetType = { type -> viewModel.setType(item.exercise.id, type) },
                             onSetRpe = { rpe -> viewModel.setRpe(item.exercise.id, rpe) },
                             onToggleSwung = { viewModel.toggleFlagSwung(item.exercise.id) },
@@ -211,16 +257,19 @@ fun ActiveWorkoutScreen(
                         )
                     }
 
-                    // Cancel workout button at bottom
+                    // Discard workout button at bottom
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
                         OutlinedButton(
-                            onClick = { showCancelDialog = true },
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            onClick = { showDiscardDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
+                            border = BorderStroke(1.dp, DangerRed),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Discard Workout")
+                            Icon(Icons.Default.Delete, contentDescription = null, tint = DangerRed)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Discard Workout (Move to Bin)")
                         }
                     }
                 }
@@ -237,14 +286,15 @@ fun ActiveWorkoutScreen(
             text = {
                 Column {
                     Text(
-                        text = "Great work! You logged $totalSets total sets.",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Great work! You logged $totalSets total sets in $formattedDuration.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = workoutNote,
                         onValueChange = { workoutNote = it },
-                        label = { Text("Workout note (optional)") },
+                        label = { Text("Workout Note (optional)") },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -252,48 +302,52 @@ fun ActiveWorkoutScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.finishWorkout(if (workoutNote.isBlank()) null else workoutNote) {
-                            showFinishDialog = false
+                        showFinishDialog = false
+                        viewModel.finishWorkout(workoutNote.ifBlank { null }) {
                             onNavigateBack()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen, contentColor = Color.Black)
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
                 ) {
-                    Text("Finish", fontWeight = FontWeight.Bold)
+                    Text("Save & Finish", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showFinishDialog = false }) {
-                    Text("Cancel")
+                    Text("Keep Training", color = TextSecondary)
                 }
             }
         )
     }
 
-    // Cancel Workout Dialog
-    if (showCancelDialog) {
+    // Discard Workout Dialog (Moved to Bin)
+    if (showDiscardDialog) {
         AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
+            onDismissRequest = { showDiscardDialog = false },
             title = { Text("Discard Workout?") },
             text = {
-                Text("This will cancel the active workout session and remove all logged sets in this workout.")
+                Text(
+                    text = "This session will be stopped and moved to the Recycle Bin. You can restore it later from More > Recycle Bin if needed.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.cancelWorkout {
-                            showCancelDialog = false
+                        showDiscardDialog = false
+                        viewModel.discardWorkout(context) {
                             onNavigateBack()
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
                 ) {
-                    Text("Discard")
+                    Text("Discard", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Keep Workout")
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
                 }
             }
         )

@@ -2,6 +2,9 @@ package com.liftlog.ui.navigation
 
 sealed class Screen(val route: String, val title: String) {
     object Train : Screen("train", "Train")
+    object WorkoutPreview : Screen("workout_preview/{templateId}", "Workout Preview") {
+        fun createRoute(templateId: Long) = "workout_preview/$templateId"
+    }
     object ActiveWorkout : Screen("active_workout/{workoutId}", "Active Workout") {
         fun createRoute(workoutId: Long) = "active_workout/$workoutId"
     }
@@ -13,7 +16,7 @@ sealed class Screen(val route: String, val title: String) {
     object ExerciseList : Screen("exercises", "Exercises")
     object TemplateList : Screen("templates", "Templates")
     object Bodyweight : Screen("bodyweight", "Bodyweight")
-    object RunLog : Screen("runs", "Cardio / Runs")
+    object RecycleBin : Screen("recycle_bin", "Recycle Bin")
     object Settings : Screen("settings", "Settings")
     object Backup : Screen("backup", "Backup & Export")
 }

@@ -1,7 +1,7 @@
 package com.liftlog.ui.train
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -30,7 +32,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,17 +51,20 @@ import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
 import com.liftlog.ui.theme.DarkSurfaceVariant
 import com.liftlog.ui.theme.PrimaryBlue
+import com.liftlog.ui.theme.SecondaryTeal
 import com.liftlog.ui.theme.SuccessGreen
 import com.liftlog.ui.theme.TertiaryAmber
 import com.liftlog.ui.theme.TextMuted
 import com.liftlog.ui.theme.TextPrimary
 import com.liftlog.ui.theme.TextSecondary
 import com.liftlog.ui.theme.WarningOrange
+import java.util.Calendar
 
 @Composable
 fun TrainScreen(
     viewModel: TrainViewModel,
     onNavigateToActiveWorkout: (Long) -> Unit,
+    onNavigateToPreview: (Long) -> Unit,
     onNavigateToBackup: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -114,54 +118,233 @@ fun TrainScreen(
                     }
                 }
 
-                // Header
+                // Weekly Schedule Strip
                 item {
-                    Column {
-                        Text(
-                            text = "Train",
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                        )
-                        Text(
-                            text = "Select today's template or start an empty workout",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
+                    WeeklyScheduleBar(
+                        isRestDay = state.isTodayRestDay,
+                        routineName = state.todayScheduledRoutineName
+                    )
+                }
+
+                // Today's Scheduled Routine Card
+                item {
+                    if (state.isTodayRestDay) {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                            border = BorderStroke(1.dp, DarkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(SecondaryTeal.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.NightsStay,
+                                        contentDescription = null,
+                                        tint = SecondaryTeal
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column {
+                                    Text(
+                                        text = "${state.dayOfWeekName} • Rest & Recovery Day",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Recover and grow, or select any routine below to train.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        val scheduledTemplate = state.templates.find { it.id == state.suggestedTemplateId }
+                        if (scheduledTemplate != null) {
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = PrimaryBlue.copy(alpha = 0.12f)),
+                                border = BorderStroke(1.5.dp, PrimaryBlue),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onNavigateToPreview(scheduledTemplate.id) }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = PrimaryBlue
+                                        ) {
+                                            Text(
+                                                text = "TODAY'S WORKOUT",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.Black
+                                                ),
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = scheduledTemplate.name,
+                                            style = MaterialTheme.typography.titleLarge.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary
+                                            )
+                                        )
+                                        Text(
+                                            text = "Tap to preview exercises and start",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = TextSecondary
+                                        )
+                                    }
+
+                                    Button(
+                                        onClick = { onNavigateToPreview(scheduledTemplate.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Preview", color = Color.Black, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Black)
+                                    }
+                                }
+                            }
+                        }
                     }
+                }
+
+                // Section Header: All Routines
+                item {
+                    Text(
+                        text = "Workout Routines",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        ),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
 
                 // Templates List
                 items(state.templates) { template ->
-                    val isSuggested = template.id == state.suggestedTemplateId
+                    val isToday = template.id == state.suggestedTemplateId
                     TemplateCard(
                         template = template,
-                        isSuggested = isSuggested,
-                        onStart = {
-                            viewModel.startWorkout(template.id) { id ->
-                                onNavigateToActiveWorkout(id)
-                            }
-                        }
+                        isToday = isToday,
+                        onPreview = { onNavigateToPreview(template.id) }
                     )
                 }
+            }
+        }
+    }
+}
 
-                // Quick Free Workout Button
-                item {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.startWorkout(null) { id ->
-                                onNavigateToActiveWorkout(id)
-                            }
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
+@Composable
+fun WeeklyScheduleBar(
+    isRestDay: Boolean,
+    routineName: String,
+    modifier: Modifier = Modifier
+) {
+    val calendar = Calendar.getInstance()
+    val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+
+    val days = listOf(
+        Pair(Calendar.MONDAY, "M"),
+        Pair(Calendar.TUESDAY, "T"),
+        Pair(Calendar.WEDNESDAY, "W"),
+        Pair(Calendar.THURSDAY, "T"),
+        Pair(Calendar.FRIDAY, "F"),
+        Pair(Calendar.SATURDAY, "S"),
+        Pair(Calendar.SUNDAY, "S")
+    )
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = BorderStroke(1.dp, DarkBorder),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Weekly Split",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = TextMuted
+                    )
+                )
+                Text(
+                    text = if (isRestDay) "Rest Day" else routineName,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = if (isRestDay) SecondaryTeal else PrimaryBlue
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                days.forEach { (calDay, label) ->
+                    val isToday = currentDayOfWeek == calDay
+                    val isWorkday = calDay in listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.THURSDAY, Calendar.FRIDAY)
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Start Empty Workout", style = MaterialTheme.typography.titleMedium)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isToday -> PrimaryBlue
+                                        isWorkday -> DarkSurfaceVariant
+                                        else -> Color.Transparent
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                                    color = when {
+                                        isToday -> Color.Black
+                                        isWorkday -> TextPrimary
+                                        else -> TextMuted
+                                    }
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -177,7 +360,7 @@ fun ActiveWorkoutResumeCard(
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.15f)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen),
+        border = BorderStroke(1.dp, SuccessGreen),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -201,10 +384,12 @@ fun ActiveWorkoutResumeCard(
 
             Button(
                 onClick = onResume,
-                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen, contentColor = Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("RESUME", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Resume", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -213,38 +398,40 @@ fun ActiveWorkoutResumeCard(
 @Composable
 fun TemplateCard(
     template: Template,
-    isSuggested: Boolean,
-    onStart: () -> Unit
+    isToday: Boolean,
+    onPreview: () -> Unit
 ) {
-    val borderColor = if (isSuggested) PrimaryBlue else DarkBorder
-    val containerColor = if (isSuggested) DarkSurfaceVariant else DarkSurface
-
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = androidx.compose.foundation.BorderStroke(if (isSuggested) 1.5.dp else 1.dp, borderColor),
-        modifier = Modifier.fillMaxWidth()
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = BorderStroke(1.dp, if (isToday) PrimaryBlue else DarkBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onPreview() }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onStart() }
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isSuggested) PrimaryBlue.copy(alpha = 0.2f) else DarkBorder),
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(if (isToday) PrimaryBlue.copy(alpha = 0.2f) else DarkSurfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.FitnessCenter,
                         contentDescription = null,
-                        tint = if (isSuggested) PrimaryBlue else TextSecondary
+                        tint = if (isToday) PrimaryBlue else TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -254,12 +441,9 @@ fun TemplateCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = template.name,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TextPrimary)
                         )
-                        if (isSuggested) {
+                        if (isToday) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
@@ -267,35 +451,25 @@ fun TemplateCard(
                             ) {
                                 Text(
                                     text = "TODAY",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = PrimaryBlue
-                                    ),
+                                    style = MaterialTheme.typography.labelSmall.copy(color = PrimaryBlue, fontWeight = FontWeight.Bold),
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         }
                     }
                     Text(
-                        text = "Tap to start session",
+                        text = "Tap to view exercises & target progression",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted
                     )
                 }
             }
 
-            Button(
-                onClick = onStart,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSuggested) PrimaryBlue else DarkSurfaceVariant,
-                    contentColor = if (isSuggested) Color.Black else TextPrimary
-                )
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Start")
-            }
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "Preview",
+                tint = TextMuted
+            )
         }
     }
 }
@@ -308,10 +482,10 @@ fun DeloadBanner(
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = WarningOrange.copy(alpha = 0.15f)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, WarningOrange),
+        border = BorderStroke(1.dp, WarningOrange),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Warning, contentDescription = null, tint = WarningOrange)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -322,21 +496,22 @@ fun DeloadBanner(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "3 or more exercises stalled over the past 14 days. Deloading drops weights to 90% and removes 1 set for 7 days.",
+                text = "3+ exercises stalled recently. A 7-day deload (90% weight, 1 fewer set) will restore recovery.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextPrimary
+                color = TextSecondary
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                 TextButton(onClick = onDismiss) {
-                    Text("Dismiss (14d)", color = TextSecondary)
+                    Text("Snooze (14d)", color = TextMuted)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = onAccept,
-                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange, contentColor = Color.Black)
+                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Accept Deload", fontWeight = FontWeight.Bold)
+                    Text("Accept Deload", color = Color.Black, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -344,33 +519,39 @@ fun DeloadBanner(
 }
 
 @Composable
-fun BackupReminderBanner(onNavigateToBackup: () -> Unit) {
+fun BackupReminderBanner(
+    onNavigateToBackup: () -> Unit
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = TertiaryAmber.copy(alpha = 0.15f)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, TertiaryAmber),
+        border = BorderStroke(1.dp, TertiaryAmber),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Backup Overdue",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = TertiaryAmber)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = TertiaryAmber)
                 )
                 Text(
-                    text = "No backup in 14+ days. Export your workouts to keep them safe.",
+                    text = "No backup exported in over 14 days. Save a copy of your lifting history.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextPrimary
+                    color = TextSecondary
                 )
             }
-            TextButton(onClick = onNavigateToBackup) {
-                Text("Export", color = TertiaryAmber, fontWeight = FontWeight.Bold)
+            Button(
+                onClick = onNavigateToBackup,
+                colors = ButtonDefaults.buttonColors(containerColor = TertiaryAmber),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Export", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
     }

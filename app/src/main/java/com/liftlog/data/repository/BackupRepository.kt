@@ -15,7 +15,9 @@ import com.liftlog.data.entity.Template
 import com.liftlog.data.entity.TemplateSlot
 import com.liftlog.data.entity.Workout
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
@@ -169,6 +171,12 @@ class BackupRepository(
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    fun isBackupOverdueFlow(): Flow<Boolean> = settingsRepository.settingsFlow.map { settings ->
+        val lastExport = settings.lastExportTs
+        if (lastExport <= 0L) true
+        else (System.currentTimeMillis() - lastExport) >= (14L * 24 * 60 * 60 * 1000)
     }
 
     suspend fun isBackupOverdue(): Boolean {

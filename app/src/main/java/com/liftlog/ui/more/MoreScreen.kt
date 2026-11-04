@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.liftlog.ui.navigation.Screen
+import com.liftlog.ui.theme.DangerRed
 import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
 import com.liftlog.ui.theme.DarkSurfaceVariant
@@ -85,8 +86,8 @@ fun MoreScreen(
                 MoreMenuItem(
                     icon = Icons.Default.FitnessCenter,
                     iconTint = PrimaryBlue,
-                    title = "Exercises",
-                    subtitle = "Manage library, edit equipment, archive or merge variants",
+                    title = "Exercise Dictionary",
+                    subtitle = "Manage dictionary, equipment types, and starting weights",
                     onClick = { onNavigate(Screen.ExerciseList.route) }
                 )
             }
@@ -95,8 +96,8 @@ fun MoreScreen(
                 MoreMenuItem(
                     icon = Icons.Default.ViewList,
                     iconTint = SecondaryTeal,
-                    title = "Templates",
-                    subtitle = "View and customize workout routines and superset pairings",
+                    title = "Workout Templates",
+                    subtitle = "Customize existing routines or create new custom templates",
                     onClick = { onNavigate(Screen.TemplateList.route) }
                 )
             }
@@ -113,11 +114,11 @@ fun MoreScreen(
 
             item {
                 MoreMenuItem(
-                    icon = Icons.Default.DirectionsRun,
-                    iconTint = PrimaryBlue,
-                    title = "Runs / Cardio",
-                    subtitle = "Minimal cardio log (date, minutes, easy/hard, notes)",
-                    onClick = { onNavigate(Screen.RunLog.route) }
+                    icon = Icons.Default.Delete,
+                    iconTint = DangerRed,
+                    title = "Recycle Bin",
+                    subtitle = "View, restore, or permanently remove discarded workouts",
+                    onClick = { onNavigate(Screen.RecycleBin.route) }
                 )
             }
 
@@ -136,7 +137,7 @@ fun MoreScreen(
                     icon = Icons.Default.Settings,
                     iconTint = TextSecondary,
                     title = "Settings",
-                    subtitle = "Protein target, rollover hour, plates, bar weight, GYM/HOME mode",
+                    subtitle = "Protein targets, day rollover hour, and weekly goals",
                     onClick = { onNavigate(Screen.Settings.route) }
                 )
             }

@@ -99,6 +99,7 @@ fun BackupScreen(
             coroutineScope.launch {
                 val result = backupRepository.exportToFolder(folderUri)
                 result.onSuccess { msg ->
+                    settingsRepository.updateLastExportTs(System.currentTimeMillis())
                     statusMessage = msg
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }.onFailure { err ->

@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 
 data class ActiveWorkoutUiState(
     val workoutId: Long,
+    val workout: com.liftlog.data.entity.Workout? = null,
     val exercises: List<ExerciseInWorkout> = emptyList(),
     val prefilledInputs: Map<Long, CurrentSetInput> = emptyMap(), // exerciseId -> CurrentSetInput
     val prBanner: PRResult? = null,
@@ -50,6 +51,7 @@ class ActiveWorkoutViewModel(
 
     fun loadWorkoutData() {
         viewModelScope.launch {
+            val workout = workoutRepository.getActiveWorkout()
             val exercisesInWorkout = workoutRepository.prepareWorkoutExercises(workoutId)
             val currentInputs = _uiState.value.prefilledInputs.toMutableMap()
 
@@ -83,10 +85,27 @@ class ActiveWorkoutViewModel(
             }
 
             _uiState.value = _uiState.value.copy(
+                workout = workout,
                 exercises = exercisesInWorkout,
                 prefilledInputs = currentInputs,
                 isLoading = false
             )
+        }
+    }
+
+    fun setWeightDirect(exerciseId: Long, weight: Double) {
+        updateInput(exerciseId) { it.copy(weightKg = maxOf(0.0, weight)) }
+    }
+
+    fun setRepsDirect(exerciseId: Long, reps: Int) {
+        updateInput(exerciseId) { it.copy(reps = maxOf(1, reps)) }
+    }
+
+    fun discardWorkout(context: Context, onDiscarded: () -> Unit) {
+        viewModelScope.launch {
+            RestTimerService.skipTimer(context)
+            workoutRepository.discardWorkout(workoutId)
+            onDiscarded()
         }
     }
 

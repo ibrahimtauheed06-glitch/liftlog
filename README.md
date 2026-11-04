@@ -153,7 +153,12 @@ Pre-seeded with a 4-day Upper/Lower split (all fields fully editable):
 5. **Pain Flag Volume Exclusion**: As specified, `flagPain` sets are excluded from e1RM, PRs, progression, and volume. `flagSwung` sets are excluded from e1RM, PRs, and progression, but still counted as volume.
 6. **Superset Rest Alternation**: When exercises share a `supersetGroup` in a template, logging a set on the first slot starts a 30s rest timer; logging a set on the second slot starts the exercise's standard rest duration (75s or 150s).
 7. **Screen Wake Lock**: When viewing the active workout screen, `FLAG_KEEP_SCREEN_ON` is acquired and released when navigating away.
-8. **Minimal Run Log**: Run logging captures date, duration in minutes, intensity (`easy` or `hard`), and optional notes. No GPS, location permissions, or map SDKs are included.
+8. **Two-Stage Workout Flow**: Tapping any template on the Train tab opens a view-only preview screen showing planned exercises, sets, and rep ranges. The workout only officially starts when the user taps "START WORKOUT", preventing accidental session creation.
+9. **Workout Duration Timer**: When an active workout begins, an overall elapsed timer starts from `startTs` and ticks continuously at the top of the active workout screen.
+10. **Discard & Recycle Bin**: Workouts can be discarded and moved into a safe local Recycle Bin (accessible in More > Recycle Bin) where they can be restored or permanently removed.
+11. **Direct Keyboard Input**: Set rows feature editable numeric text fields for both weight and reps alongside `+/-` steppers for instant, flexible adjustments.
+12. **Workout Template Editor**: Users can add, reorder, remove exercises, or create entirely new custom templates in More > Workout Templates.
+13. **Streamlined Experience**: Plate calculator, cardio/runs, and HOME/GYM phase mode have been removed in favor of a clean, gym-focused lifting tracker.
 
 ---
 

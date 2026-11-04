@@ -16,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,8 +47,8 @@ fun ExerciseEditDialog(
 ) {
     var name by remember { mutableStateOf(exercise?.name ?: "") }
     var equipment by remember { mutableStateOf(exercise?.equipment ?: "barbell") }
+    var defaultWeightKgText by remember { mutableStateOf(if (exercise != null && exercise.defaultWeightKg > 0.0) exercise.defaultWeightKg.toString() else "") }
     var incrementKgText by remember { mutableStateOf(exercise?.incrementKg?.toString() ?: "2.5") }
-    var plateKgText by remember { mutableStateOf(exercise?.plateKg?.toString() ?: "") }
     var repLoText by remember { mutableStateOf(exercise?.repLo?.toString() ?: "5") }
     var repHiText by remember { mutableStateOf(exercise?.repHi?.toString() ?: "8") }
     var defaultSetsText by remember { mutableStateOf(exercise?.defaultSets?.toString() ?: "3") }
@@ -55,9 +56,7 @@ fun ExerciseEditDialog(
     var isCompound by remember { mutableStateOf(exercise?.isCompound ?: true) }
     var bwFactor by remember { mutableStateOf(exercise?.bwFactor ?: 0.0) }
     var primaryMuscles by remember { mutableStateOf(exercise?.primaryMuscles ?: "") }
-    var secondaryMuscles by remember { mutableStateOf(exercise?.secondaryMuscles ?: "") }
     var setupNote by remember { mutableStateOf(exercise?.setupNote ?: "") }
-    var homeCapKgText by remember { mutableStateOf(exercise?.homeCapKg?.toString() ?: "") }
 
     val equipments = listOf("barbell", "dumbbell", "cable", "machine", "bodyweight")
 
@@ -79,6 +78,7 @@ fun ExerciseEditDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Exercise Name") },
+                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -102,7 +102,7 @@ fun ExerciseEditDialog(
                                 .padding(horizontal = 6.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = eq.capitalize(java.util.Locale.ROOT),
+                                text = eq.uppercase(),
                                 color = if (isSelected) Color.Black else TextSecondary,
                                 style = MaterialTheme.typography.labelSmall
                             )
@@ -114,16 +114,16 @@ fun ExerciseEditDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = incrementKgText,
-                        onValueChange = { incrementKgText = it },
-                        label = { Text("Increment (kg)") },
+                        value = defaultWeightKgText,
+                        onValueChange = { defaultWeightKgText = it },
+                        label = { Text("Initial Weight (kg)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
-                        value = plateKgText,
-                        onValueChange = { plateKgText = it },
-                        label = { Text("Plate / Pin (kg)") },
+                        value = incrementKgText,
+                        onValueChange = { incrementKgText = it },
+                        label = { Text("Increment (kg)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
                     )
@@ -169,26 +169,14 @@ fun ExerciseEditDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = homeCapKgText,
-                        onValueChange = { homeCapKgText = it },
-                        label = { Text("Home Cap (kg)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = isCompound, onCheckedChange = { isCompound = it })
-                    Text("Compound lift (gets warm-up prefill & 150s rest)")
+                    Text("Compound lift (warm-up prefill & 150s rest)")
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = bwFactor == 1.0, onCheckedChange = { bwFactor = if (it) 1.0 else 0.0 })
-                    Text("Add bodyweight to load (e.g. pullups/dips)")
+                    Text("Bodyweight lift (e.g. pullups/dips)")
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -196,16 +184,7 @@ fun ExerciseEditDialog(
                 OutlinedTextField(
                     value = primaryMuscles,
                     onValueChange = { primaryMuscles = it },
-                    label = { Text("Primary Muscles (comma-separated)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = secondaryMuscles,
-                    onValueChange = { secondaryMuscles = it },
-                    label = { Text("Secondary Muscles (0.5 set volume)") },
+                    label = { Text("Primary Muscles (e.g. Chest, Quads)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -214,7 +193,7 @@ fun ExerciseEditDialog(
                 OutlinedTextField(
                     value = setupNote,
                     onValueChange = { setupNote = it },
-                    label = { Text("Setup Note") },
+                    label = { Text("Setup Note (optional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -223,19 +202,18 @@ fun ExerciseEditDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
+                        val initWeight = defaultWeightKgText.toDoubleOrNull() ?: 0.0
                         val inc = incrementKgText.toDoubleOrNull() ?: 2.5
-                        val plate = plateKgText.toDoubleOrNull()
                         val rLo = repLoText.toIntOrNull() ?: 5
                         val rHi = repHiText.toIntOrNull() ?: 8
                         val dSets = defaultSetsText.toIntOrNull() ?: 3
                         val rest = restSecText.toIntOrNull() ?: 150
-                        val homeCap = homeCapKgText.toDoubleOrNull()
 
                         val updated = (exercise ?: Exercise(name = name, equipment = equipment)).copy(
                             name = name.trim(),
                             equipment = equipment,
+                            defaultWeightKg = initWeight,
                             incrementKg = inc,
-                            plateKg = plate,
                             repLo = rLo,
                             repHi = rHi,
                             defaultSets = dSets,
@@ -243,20 +221,19 @@ fun ExerciseEditDialog(
                             isCompound = isCompound,
                             bwFactor = bwFactor,
                             primaryMuscles = primaryMuscles.trim(),
-                            secondaryMuscles = secondaryMuscles.trim(),
-                            setupNote = if (setupNote.isBlank()) null else setupNote.trim(),
-                            homeCapKg = homeCap
+                            setupNote = if (setupNote.isBlank()) null else setupNote.trim()
                         )
                         onSave(updated)
                     }
-                }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
-                Text("Save")
+                Text("Save", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = TextSecondary)
             }
         }
     )

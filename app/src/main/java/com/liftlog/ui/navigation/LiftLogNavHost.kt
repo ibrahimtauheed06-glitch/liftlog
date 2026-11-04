@@ -1,12 +1,13 @@
 package com.liftlog.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Egg
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -32,9 +33,9 @@ import com.liftlog.AppContainer
 import com.liftlog.data.repository.UserSettings
 import com.liftlog.ui.more.MoreScreen
 import com.liftlog.ui.more.backup.BackupScreen
+import com.liftlog.ui.more.bin.RecycleBinScreen
 import com.liftlog.ui.more.bodyweight.BodyweightScreen
 import com.liftlog.ui.more.exercise.ExerciseListScreen
-import com.liftlog.ui.more.run.RunLogScreen
 import com.liftlog.ui.more.settings.SettingsScreen
 import com.liftlog.ui.more.template.TemplateListScreen
 import com.liftlog.ui.protein.ProteinScreen
@@ -49,6 +50,7 @@ import com.liftlog.ui.train.ActiveWorkoutScreen
 import com.liftlog.ui.train.ActiveWorkoutViewModel
 import com.liftlog.ui.train.TrainScreen
 import com.liftlog.ui.train.TrainViewModel
+import com.liftlog.ui.train.WorkoutPreviewScreen
 
 data class BottomNavItem(
     val screen: Screen,
@@ -74,8 +76,9 @@ fun LiftLogNavHost(
         BottomNavItem(Screen.More, Icons.Default.MoreHoriz, "More")
     )
 
-    // Hide bottom navigation bar on active workout screen
-    val showBottomBar = currentRoute?.startsWith("active_workout") != true
+    // Hide bottom navigation bar on active workout and preview screens
+    val showBottomBar = currentRoute?.startsWith("active_workout") != true &&
+            currentRoute?.startsWith("workout_preview") != true
 
     Scaffold(
         modifier = modifier,
@@ -116,7 +119,11 @@ fun LiftLogNavHost(
         NavHost(
             navController = navController,
             startDestination = Screen.Train.route,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            enterTransition = { EnterTransition.None },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+            popExitTransition = { ExitTransition.None }
         ) {
             composable(Screen.Train.route) {
                 val trainViewModel: TrainViewModel = viewModel(
@@ -132,9 +139,31 @@ fun LiftLogNavHost(
                     onNavigateToActiveWorkout = { workoutId ->
                         navController.navigate(Screen.ActiveWorkout.createRoute(workoutId))
                     },
+                    onNavigateToPreview = { templateId ->
+                        navController.navigate(Screen.WorkoutPreview.createRoute(templateId))
+                    },
                     onNavigateToBackup = {
                         navController.navigate(Screen.Backup.route)
                     }
+                )
+            }
+
+            composable(
+                route = Screen.WorkoutPreview.route,
+                arguments = listOf(navArgument("templateId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val templateId = backStackEntry.arguments?.getLong("templateId") ?: 0L
+                WorkoutPreviewScreen(
+                    templateId = templateId,
+                    templateDao = container.database.templateDao(),
+                    exerciseDao = container.database.exerciseDao(),
+                    workoutRepository = container.workoutRepository,
+                    onStartWorkout = { workoutId ->
+                        navController.navigate(Screen.ActiveWorkout.createRoute(workoutId)) {
+                            popUpTo(Screen.Train.route)
+                        }
+                    },
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -208,9 +237,10 @@ fun LiftLogNavHost(
                 )
             }
 
-            composable(Screen.RunLog.route) {
-                RunLogScreen(
-                    runRepository = container.runRepository,
+            composable(Screen.RecycleBin.route) {
+                RecycleBinScreen(
+                    workoutRepository = container.workoutRepository,
+                    templateDao = container.database.templateDao(),
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

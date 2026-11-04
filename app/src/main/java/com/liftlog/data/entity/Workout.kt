@@ -10,5 +10,6 @@ data class Workout(
     val templateId: Long? = null,
     val startTs: Long,
     val endTs: Long? = null,
-    val note: String? = null
+    val note: String? = null,
+    val isDiscarded: Boolean = false
 )

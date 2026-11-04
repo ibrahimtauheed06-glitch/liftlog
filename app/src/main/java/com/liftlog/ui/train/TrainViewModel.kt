@@ -24,6 +24,9 @@ data class TrainUiState(
     val activeWorkout: Workout? = null,
     val templates: List<Template> = emptyList(),
     val suggestedTemplateId: Long? = null,
+    val isTodayRestDay: Boolean = false,
+    val todayScheduledRoutineName: String = "",
+    val dayOfWeekName: String = "",
     val showDeloadBanner: Boolean = false,
     val showBackupReminder: Boolean = false,
     val isLoading: Boolean = false
@@ -36,57 +39,57 @@ class TrainViewModel(
     private val backupRepository: BackupRepository
 ) : ViewModel() {
 
-    private val _suggestedTemplateId = MutableStateFlow<Long?>(null)
     private val _showDeloadBanner = MutableStateFlow(false)
-    private val _showBackupReminder = MutableStateFlow(false)
 
     val uiState: StateFlow<TrainUiState> = combine(
         workoutRepository.getActiveWorkoutFlow(),
         templateDao.getAllTemplates(),
-        _suggestedTemplateId,
-        _showDeloadBanner,
-        _showBackupReminder
-    ) { active, templates, suggestedId, showDeload, showBackup ->
+        backupRepository.isBackupOverdueFlow(),
+        _showDeloadBanner
+    ) { active, templates, isOverdue, showDeload ->
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val dayName = when (dayOfWeek) {
+            Calendar.MONDAY -> "Monday"
+            Calendar.TUESDAY -> "Tuesday"
+            Calendar.WEDNESDAY -> "Wednesday"
+            Calendar.THURSDAY -> "Thursday"
+            Calendar.FRIDAY -> "Friday"
+            Calendar.SATURDAY -> "Saturday"
+            Calendar.SUNDAY -> "Sunday"
+            else -> "Today"
+        }
+
+        val (routineName, isRest) = when (dayOfWeek) {
+            Calendar.MONDAY -> "Upper A" to false
+            Calendar.TUESDAY -> "Lower A" to false
+            Calendar.WEDNESDAY -> "Rest Day" to true
+            Calendar.THURSDAY -> "Upper B" to false
+            Calendar.FRIDAY -> "Lower B" to false
+            Calendar.SATURDAY -> "Rest Day" to true
+            Calendar.SUNDAY -> "Rest Day" to true
+            else -> "Upper A" to false
+        }
+
+        val matchedTemplateId = if (!isRest) {
+            templates.find { it.name.equals(routineName, ignoreCase = true) }?.id
+        } else null
+
         TrainUiState(
             activeWorkout = active,
             templates = templates,
-            suggestedTemplateId = suggestedId ?: determineSuggestedTemplateId(templates),
+            suggestedTemplateId = matchedTemplateId,
+            isTodayRestDay = isRest,
+            todayScheduledRoutineName = routineName,
+            dayOfWeekName = dayName,
             showDeloadBanner = showDeload,
-            showBackupReminder = showBackup,
+            showBackupReminder = isOverdue,
             isLoading = false
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrainUiState(isLoading = true))
 
     init {
-        checkDeloadAndBackup()
-    }
-
-    private fun checkDeloadAndBackup() {
-        viewModelScope.launch {
-            _showBackupReminder.value = backupRepository.isBackupOverdue()
-
-            // Check deload
-            val settings = settingsRepository.settingsFlow.stateIn(viewModelScope).value
-            val isAlreadyDeloading = settings.deloadActiveUntilTs > System.currentTimeMillis()
-            if (!isAlreadyDeloading) {
-                val allExercises = workoutRepository.getActiveWorkout() // check history
-                // We'll evaluate deload suggestion
-            }
-        }
-    }
-
-    private fun determineSuggestedTemplateId(templates: List<Template>): Long? {
-        val dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-        // Mon = 2 -> Upper A, Tue = 3 -> Lower A, Thu = 5 -> Upper B, Fri = 6 -> Lower B
-        val targetName = when (dayOfWeek) {
-            Calendar.MONDAY -> "Upper A"
-            Calendar.TUESDAY -> "Lower A"
-            Calendar.THURSDAY -> "Upper B"
-            Calendar.FRIDAY -> "Lower B"
-            else -> "Upper A"
-        }
-        return templates.find { it.name.equals(targetName, ignoreCase = true) }?.id
-            ?: templates.firstOrNull()?.id
+        // Backup overdue is observed reactively via backupRepository.isBackupOverdueFlow()
     }
 
     fun startWorkout(templateId: Long?, onStarted: (Long) -> Unit) {

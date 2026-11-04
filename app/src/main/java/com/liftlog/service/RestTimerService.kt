@@ -172,12 +172,12 @@ class RestTimerService : Service() {
             remainingSec = 0,
             isFinished = true
         )
-        triggerVibrateAndSound()
+        triggerGentleVibration()
         val finishedNotification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Rest Complete!")
-            .setContentText("Ready for the next set of $exerciseName")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentTitle("Rest Complete")
+            .setContentText("Ready for next set of $exerciseName")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(createOpenAppPendingIntent())
             .build()
@@ -186,26 +186,20 @@ class RestTimerService : Service() {
         stopSelf()
     }
 
-    private fun triggerVibrateAndSound() {
+    private fun triggerGentleVibration() {
         try {
-            // Sound
-            val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            val ringtone = RingtoneManager.getRingtone(applicationContext, notificationUri)
-            ringtone?.play()
-
-            // Vibration
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
                 val vibrator = vibratorManager.defaultVibrator
-                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 150, 100, 150), -1))
             } else {
                 @Suppress("DEPRECATION")
                 val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+                    vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 150, 100, 150), -1))
                 } else {
                     @Suppress("DEPRECATION")
-                    vibrator.vibrate(longArrayOf(0, 500, 200, 500), -1)
+                    vibrator.vibrate(longArrayOf(0, 150, 100, 150), -1)
                 }
             }
         } catch (_: Exception) {}
