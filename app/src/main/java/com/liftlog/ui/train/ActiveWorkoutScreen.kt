@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -183,45 +184,19 @@ fun ActiveWorkoutScreen(
                 // Ongoing Rest Timer Banner
                 RestTimerBanner(timerState = timerState)
 
-                // PR Achievement Banner (if new PR logged)
-                state.prBanner?.badgeText()?.let { badge ->
-                    Card(
-                        shape = RoundedCornerShape(8.dp),
-                        colors = CardDefaults.cardColors(containerColor = TertiaryAmber),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color.Black)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "PR! $badge",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black
-                                    )
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.dismissPrBanner() },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = Color.Black)
-                            }
-                        }
+                val listState = rememberLazyListState()
+
+                // Auto-advance scroll to the next exercise when designated sets of previous exercise are completed
+                val firstIncompleteIndex = state.exercises.indexOfFirst { it.loggedSets.size < it.plannedSets }
+                LaunchedEffect(firstIncompleteIndex) {
+                    if (firstIncompleteIndex > 0) {
+                        listState.animateScrollToItem(firstIncompleteIndex)
                     }
                 }
 
                 // Exercises List
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -243,6 +218,8 @@ fun ActiveWorkoutScreen(
                             item = item,
                             currentInput = input,
                             supersetLabel = supersetLabel,
+                            isResting = timerState.isRunning,
+                            restRemainingSec = timerState.remainingSec,
                             onAdjustWeight = { delta -> viewModel.adjustWeight(item.exercise.id, delta) },
                             onAdjustReps = { delta -> viewModel.adjustReps(item.exercise.id, delta) },
                             onDirectWeightChange = { weight -> viewModel.setWeightDirect(item.exercise.id, weight) },
@@ -303,7 +280,7 @@ fun ActiveWorkoutScreen(
                 Button(
                     onClick = {
                         showFinishDialog = false
-                        viewModel.finishWorkout(workoutNote.ifBlank { null }) {
+                        viewModel.finishWorkout(context, workoutNote.ifBlank { null }) {
                             onNavigateBack()
                         }
                     },

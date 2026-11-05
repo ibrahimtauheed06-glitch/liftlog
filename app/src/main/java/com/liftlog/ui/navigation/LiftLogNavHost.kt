@@ -80,6 +80,15 @@ fun LiftLogNavHost(
         BottomNavItem(Screen.More, Icons.Default.MoreHoriz, "More")
     )
 
+    val moreSubroutes = setOf(
+        Screen.ExerciseList.route,
+        Screen.TemplateList.route,
+        Screen.Bodyweight.route,
+        Screen.RecycleBin.route,
+        Screen.Settings.route,
+        Screen.Backup.route
+    )
+
     // Hide bottom navigation bar on active workout, preview, and workout detail screens
     val showBottomBar = currentRoute?.startsWith("active_workout") != true &&
             currentRoute?.startsWith("workout_preview") != true &&
@@ -94,7 +103,11 @@ fun LiftLogNavHost(
                     contentColor = TextSecondary
                 ) {
                     bottomNavItems.forEach { item ->
-                        val selected = currentRoute == item.screen.route
+                        val selected = if (item.screen == Screen.More) {
+                            currentRoute == Screen.More.route || currentRoute in moreSubroutes
+                        } else {
+                            currentRoute == item.screen.route
+                        }
                         NavigationBarItem(
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
@@ -107,12 +120,24 @@ fun LiftLogNavHost(
                                 unselectedTextColor = TextMuted
                             ),
                             onClick = {
-                                navController.navigate(item.screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                if (item.screen == Screen.More) {
+                                    // Always reset to root More screen instead of restoring sub-screens
+                                    navController.popBackStack(Screen.More.route, inclusive = false)
+                                    navController.navigate(Screen.More.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = false
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                } else {
+                                    navController.navigate(item.screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                         )

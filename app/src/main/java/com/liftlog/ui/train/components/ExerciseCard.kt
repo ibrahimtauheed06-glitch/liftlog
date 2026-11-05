@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,14 +16,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,12 +45,14 @@ import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
 import com.liftlog.ui.theme.PrimaryBlue
 import com.liftlog.ui.theme.SecondaryTeal
+import com.liftlog.ui.theme.SuccessGreen
 import com.liftlog.ui.theme.TertiaryAmber
 import com.liftlog.ui.theme.TextMuted
 import com.liftlog.ui.theme.TextPrimary
 import com.liftlog.ui.theme.TextSecondary
 import com.liftlog.ui.theme.WarningOrange
 import com.liftlog.ui.train.CurrentSetInput
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -53,6 +60,8 @@ fun ExerciseCard(
     item: ExerciseInWorkout,
     currentInput: CurrentSetInput?,
     supersetLabel: String?, // e.g. "SS1 (A)" or "SS1 (B)"
+    isResting: Boolean = false,
+    restRemainingSec: Int = 0,
     onAdjustWeight: (Double) -> Unit,
     onAdjustReps: (Int) -> Unit,
     onDirectWeightChange: (Double) -> Unit,
@@ -67,6 +76,9 @@ fun ExerciseCard(
     modifier: Modifier = Modifier
 ) {
     var editingSet by remember { mutableStateOf<SetEntry?>(null) }
+    var showExtraSetInput by remember(item.loggedSets.size) { mutableStateOf(false) }
+
+    val isBodyweight = item.exercise.bwFactor > 0.0
 
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -89,8 +101,11 @@ fun ExerciseCard(
                             color = TextPrimary
                         )
                     )
+                    val bwInfo = if (isBodyweight && item.bodyweightAvg > 0.0) {
+                        " • BW: ${String.format(Locale.US, "%.1f", item.bodyweightAvg)}kg"
+                    } else ""
                     Text(
-                        text = "${item.exercise.equipment.uppercase()} • ${item.plannedSets} sets • ${item.exercise.repLo}–${item.exercise.repHi} reps",
+                        text = "${item.exercise.equipment.uppercase()}$bwInfo • ${item.plannedSets} sets • ${item.exercise.repLo}–${item.exercise.repHi} reps",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
@@ -138,7 +153,7 @@ fun ExerciseCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Progression Summary Row: "Last: 65x7,7,6 (RPE9)" and "Today: 65x8"
+            // Progression Summary Row: "Last: 65x7,7,6 (RPE9)" and real-time "Today: ..."
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -160,15 +175,45 @@ fun ExerciseCard(
                     )
                 }
 
-                val targetWeightStr = if (item.target.targetWeightKg % 1.0 == 0.0) {
-                    item.target.targetWeightKg.toInt().toString()
+                // Real-time Today display: dynamically reflects logged sets as they are completed
+                if (item.loggedSets.isNotEmpty()) {
+                    val workingSets = item.loggedSets.filter { it.type == "working" }
+                    val setsToShow = if (workingSets.isNotEmpty()) workingSets else item.loggedSets
+                    val repsStr = setsToShow.joinToString(",") { "${it.reps}" }
+                    val lastWeight = setsToShow.last().weightKg
+                    val weightStr = if (isBodyweight) {
+                        if (lastWeight > 0.0) {
+                            "BW+${if (lastWeight % 1.0 == 0.0) lastWeight.toInt() else lastWeight}kg"
+                        } else "BW"
+                    } else {
+                        if (lastWeight % 1.0 == 0.0) "${lastWeight.toInt()}kg" else "${lastWeight}kg"
+                    }
+
+                    val isComplete = item.loggedSets.size >= item.plannedSets
+                    val progressLabel = if (isComplete) " (Done)" else " (${item.loggedSets.size}/${item.plannedSets})"
+                    Text(
+                        text = "Today: $weightStr × $repsStr$progressLabel",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = if (isComplete) SuccessGreen else PrimaryBlue
+                        )
+                    )
                 } else {
-                    item.target.targetWeightKg.toString()
+                    val targetWeightStr = if (item.target.targetWeightKg % 1.0 == 0.0) {
+                        item.target.targetWeightKg.toInt().toString()
+                    } else {
+                        item.target.targetWeightKg.toString()
+                    }
+                    val targetWeightDisplay = if (isBodyweight) {
+                        if (item.target.targetWeightKg > 0.0) "BW+${targetWeightStr}kg" else "BW"
+                    } else {
+                        "${targetWeightStr}kg"
+                    }
+                    Text(
+                        text = "Today: $targetWeightDisplay × ${item.target.targetReps}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                    )
                 }
-                Text(
-                    text = "Today: ${targetWeightStr}kg × ${item.target.targetReps}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
-                )
             }
 
             // Warning chips & notices
@@ -242,6 +287,7 @@ fun ExerciseCard(
                         LoggedSetItem(
                             index = idx + 1,
                             set = set,
+                            isBodyweight = isBodyweight,
                             onEditClick = { editingSet = set }
                         )
                     }
@@ -249,8 +295,53 @@ fun ExerciseCard(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Current set input row
-            if (currentInput != null) {
+            // Prescribed sets completion guard & Extra Sets
+            val isCompleted = item.loggedSets.size >= item.plannedSets
+            if (isCompleted && !showExtraSetInput) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = SuccessGreen.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = SuccessGreen,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Completed (${item.loggedSets.size}/${item.plannedSets} Sets)",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SuccessGreen
+                                )
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showExtraSetInput = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
+                            border = BorderStroke(1.dp, DarkBorder),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "+ Extra Set",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            } else if (currentInput != null) {
                 val nextSetIndex = item.loggedSets.size + 1
                 val isLastPlanned = nextSetIndex >= item.plannedSets
 
@@ -259,6 +350,9 @@ fun ExerciseCard(
                     input = currentInput,
                     isLastPlannedSet = isLastPlanned,
                     incrementKg = item.exercise.incrementKg,
+                    isBodyweight = isBodyweight,
+                    isResting = isResting,
+                    restRemainingSec = restRemainingSec,
                     onAdjustWeight = onAdjustWeight,
                     onAdjustReps = onAdjustReps,
                     onDirectWeightChange = onDirectWeightChange,
@@ -269,6 +363,17 @@ fun ExerciseCard(
                     onTogglePain = onTogglePain,
                     onLogSet = onLogSet
                 )
+
+                if (isCompleted && showExtraSetInput) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showExtraSetInput = false }) {
+                            Text("Cancel Extra Set", color = TextMuted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
             }
         }
     }

@@ -226,7 +226,60 @@ fun TrainScreen(
 
                 // Today's Scheduled Routine Card
                 item {
-                    if (state.isTodayRestDay) {
+                    if (state.isTodayWorkoutCompleted) {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.12f)),
+                            border = BorderStroke(1.5.dp, SuccessGreen),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToHistory() }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = SuccessGreen
+                                    ) {
+                                        Text(
+                                            text = "TODAY'S WORKOUT DONE 🎉",
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black
+                                            ),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = state.completedTodayWorkoutName ?: "Session Completed",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextPrimary
+                                        )
+                                    )
+                                    Text(
+                                        text = "Workout finished for today. Tap to view past sessions.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                    contentDescription = null,
+                                    tint = SuccessGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    } else if (state.isTodayRestDay) {
                         Card(
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = DarkSurface),

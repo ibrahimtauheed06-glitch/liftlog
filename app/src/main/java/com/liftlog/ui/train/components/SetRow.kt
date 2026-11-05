@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -67,6 +68,7 @@ fun LoggedSetItem(
     index: Int,
     set: SetEntry,
     onEditClick: () -> Unit,
+    isBodyweight: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -96,8 +98,13 @@ fun LoggedSetItem(
             Spacer(modifier = Modifier.width(12.dp))
 
             val weightStr = if (set.weightKg % 1.0 == 0.0) set.weightKg.toInt().toString() else set.weightKg.toString()
+            val displayWeight = if (isBodyweight) {
+                if (set.weightKg > 0.0) "BW + ${weightStr}kg × ${set.reps}" else "Bodyweight × ${set.reps}"
+            } else {
+                "${weightStr}kg × ${set.reps}"
+            }
             Text(
-                text = "${weightStr}kg × ${set.reps}",
+                text = displayWeight,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = TextPrimary)
             )
 
@@ -155,6 +162,9 @@ fun CurrentSetInputRow(
     input: CurrentSetInput,
     isLastPlannedSet: Boolean,
     incrementKg: Double,
+    isBodyweight: Boolean = false,
+    isResting: Boolean = false,
+    restRemainingSec: Int = 0,
     onAdjustWeight: (Double) -> Unit,
     onAdjustReps: (Int) -> Unit,
     onDirectWeightChange: (Double) -> Unit,
@@ -181,7 +191,8 @@ fun CurrentSetInputRow(
         ) {
             // Weight Column
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("WEIGHT (KG)", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                val weightLabel = if (isBodyweight) "ADDED WT (KG)" else "WEIGHT (KG)"
+                Text(weightLabel, style = MaterialTheme.typography.labelSmall, color = TextMuted)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
@@ -332,38 +343,82 @@ fun CurrentSetInputRow(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Flags & RPE Row
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // RPE chip (appears on the last planned set)
-            if (isLastPlannedSet && input.type == "working") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("RPE: ", style = MaterialTheme.typography.labelMedium, color = TextMuted)
-                    listOf(7.0, 8.0, 9.0, 10.0).forEach { rpeVal ->
-                        val isSelected = input.rpe == rpeVal
+        // RPE (Exertion / RIR) Decimal Selector
+        if (input.type == "working") {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("RPE (Exertion / RIR):", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+
+                    var rpeText by remember(input.rpe) {
+                        mutableStateOf(if (input.rpe % 1.0 == 0.0) input.rpe.toInt().toString() else input.rpe.toString())
+                    }
+                    OutlinedTextField(
+                        value = rpeText,
+                        onValueChange = { newVal ->
+                            rpeText = newVal
+                            newVal.toDoubleOrNull()?.let { onSetRpe(it) }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = TertiaryAmber,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TertiaryAmber,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkSurface,
+                            unfocusedContainerColor = DarkSurface
+                        ),
+                        modifier = Modifier
+                            .width(64.dp)
+                            .height(40.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0).forEach { rpeVal ->
+                        val isSelected = Math.abs(input.rpe - rpeVal) < 0.01
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = if (isSelected) TertiaryAmber else DarkBorder,
                             modifier = Modifier
-                                .padding(end = 4.dp)
+                                .weight(1f)
                                 .clickable { onSetRpe(rpeVal) }
                         ) {
                             Text(
                                 text = if (rpeVal % 1.0 == 0.0) rpeVal.toInt().toString() else rpeVal.toString(),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) Color.Black else TextSecondary
+                                    color = if (isSelected) Color.Black else TextSecondary,
+                                    textAlign = TextAlign.Center
                                 ),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(vertical = 6.dp)
                             )
                         }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
 
+        // Flags Row
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             // Flag Swung
             FilterChip(
                 selected = input.flagSwung,
@@ -389,25 +444,45 @@ fun CurrentSetInputRow(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Log Set Button (Big, prominent, 1-tap logging)
+        // Log Set Button (with countdown protection during rest timer)
+        val minutes = restRemainingSec / 60
+        val seconds = restRemainingSec % 60
+        val timeFormatted = String.format("%02d:%02d", minutes, seconds)
+
         Button(
             onClick = onLogSet,
-            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+            enabled = !isResting,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = SuccessGreen,
+                disabledContainerColor = DarkBorder
+            ),
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "LOG SET $setIndex",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                if (isResting) {
+                    Icon(Icons.Default.Timer, contentDescription = null, tint = TextMuted)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "RESTING ($timeFormatted) • SKIP TO LOG",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = TextMuted
+                        )
                     )
-                )
+                } else {
+                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "LOG SET $setIndex",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    )
+                }
             }
         }
     }

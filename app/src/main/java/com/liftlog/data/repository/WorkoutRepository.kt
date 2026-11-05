@@ -34,7 +34,8 @@ data class ExerciseInWorkout(
     val warmupTargets: List<WarmupSetTarget>,
     val loggedSets: List<SetEntry>,
     val lastSessionSummary: String?, // e.g. "Last: 65x7,7,6 (RPE9)"
-    val hasPainWarning: Boolean = false
+    val hasPainWarning: Boolean = false,
+    val bodyweightAvg: Double = 0.0
 )
 
 class WorkoutRepository(
@@ -317,7 +318,8 @@ class WorkoutRepository(
                     warmupTargets = warmups,
                     loggedSets = loggedForEx,
                     lastSessionSummary = lastSummary,
-                    hasPainWarning = painWarning
+                    hasPainWarning = painWarning,
+                    bodyweightAvg = bwAvg
                 )
             )
         }

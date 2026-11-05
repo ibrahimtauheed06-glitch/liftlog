@@ -103,7 +103,7 @@ class ActiveWorkoutViewModel(
 
     fun discardWorkout(context: Context, onDiscarded: () -> Unit) {
         viewModelScope.launch {
-            RestTimerService.skipTimer(context)
+            RestTimerService.stopTimer(context)
             workoutRepository.discardWorkout(workoutId)
             onDiscarded()
         }
@@ -171,11 +171,16 @@ class ActiveWorkoutViewModel(
             // Auto-start Rest Timer on working/drop set
             if (input.type != "warmup") {
                 val restSec = computeRestSeconds(exItem)
-                RestTimerService.startTimer(context, restSec, exItem.exercise.name)
-            }
-
-            if (prResult.isAnyPR) {
-                _uiState.value = _uiState.value.copy(prBanner = prResult)
+                val timerTitle = if (isLastPlannedSet) {
+                    val currentIndex = _uiState.value.exercises.indexOfFirst { it.exercise.id == exerciseId }
+                    val nextEx = if (currentIndex != -1 && currentIndex + 1 < _uiState.value.exercises.size) {
+                        _uiState.value.exercises[currentIndex + 1]
+                    } else null
+                    if (nextEx != null) "Next: ${nextEx.exercise.name}" else "${exItem.exercise.name} (Rest)"
+                } else {
+                    "${exItem.exercise.name} (Set ${exItem.loggedSets.size + 2})"
+                }
+                RestTimerService.startTimer(context, restSec, timerTitle)
             }
 
             // Reload exercises and advance prefilled input to next planned set
@@ -255,15 +260,17 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    fun finishWorkout(note: String?, onFinished: () -> Unit) {
+    fun finishWorkout(context: Context? = null, note: String?, onFinished: () -> Unit) {
         viewModelScope.launch {
+            context?.let { RestTimerService.stopTimer(it) }
             workoutRepository.finishWorkout(workoutId, note)
             onFinished()
         }
     }
 
-    fun cancelWorkout(onCancelled: () -> Unit) {
+    fun cancelWorkout(context: Context? = null, onCancelled: () -> Unit) {
         viewModelScope.launch {
+            context?.let { RestTimerService.stopTimer(it) }
             workoutRepository.cancelActiveWorkout(workoutId)
             onCancelled()
         }

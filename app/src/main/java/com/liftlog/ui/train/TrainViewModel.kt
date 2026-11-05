@@ -27,6 +27,8 @@ data class TrainUiState(
     val isTodayRestDay: Boolean = false,
     val todayScheduledRoutineName: String = "",
     val dayOfWeekName: String = "",
+    val isTodayWorkoutCompleted: Boolean = false,
+    val completedTodayWorkoutName: String? = null,
     val showDeloadBanner: Boolean = false,
     val showBackupReminder: Boolean = false,
     val isLoading: Boolean = false
@@ -41,12 +43,18 @@ class TrainViewModel(
 
     private val _showDeloadBanner = MutableStateFlow(false)
 
+    private val completedAndSettingsFlow = combine(
+        workoutRepository.getCompletedWorkoutsFlow(),
+        settingsRepository.settingsFlow
+    ) { completed, settings -> Pair(completed, settings) }
+
     val uiState: StateFlow<TrainUiState> = combine(
         workoutRepository.getActiveWorkoutFlow(),
         templateDao.getAllTemplates(),
         backupRepository.isBackupOverdueFlow(),
+        completedAndSettingsFlow,
         _showDeloadBanner
-    ) { active, templates, isOverdue, showDeload ->
+    ) { active, templates, isOverdue, (completedWorkouts, settings), showDeload ->
         val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         val dayName = when (dayOfWeek) {
@@ -75,6 +83,18 @@ class TrainViewModel(
             templates.find { it.name.equals(routineName, ignoreCase = true) }?.id
         } else null
 
+        // Check if workout completed in today's rollover window
+        val (startOfToday, endOfToday) = com.liftlog.data.repository.ProteinRepository.getDayWindow(
+            System.currentTimeMillis(),
+            settings.dayRolloverHour
+        )
+        val completedToday = completedWorkouts.filter { it.endTs != null && it.endTs in startOfToday..endOfToday }
+        val isCompletedToday = completedToday.isNotEmpty()
+        val lastCompleted = completedToday.maxByOrNull { it.endTs ?: 0L }
+        val completedName = lastCompleted?.let { w ->
+            templates.find { it.id == w.templateId }?.name ?: "Workout"
+        }
+
         TrainUiState(
             activeWorkout = active,
             templates = templates,
@@ -82,6 +102,8 @@ class TrainViewModel(
             isTodayRestDay = isRest,
             todayScheduledRoutineName = routineName,
             dayOfWeekName = dayName,
+            isTodayWorkoutCompleted = isCompletedToday,
+            completedTodayWorkoutName = completedName,
             showDeloadBanner = showDeload,
             showBackupReminder = isOverdue,
             isLoading = false

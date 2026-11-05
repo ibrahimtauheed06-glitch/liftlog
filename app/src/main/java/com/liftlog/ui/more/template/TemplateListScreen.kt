@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -92,9 +93,8 @@ fun TemplateListScreen(
     val templates by templateDao.getAllTemplates().collectAsState(initial = emptyList())
     val coroutineScope = rememberCoroutineScope()
 
-    val exercises by produceState<Map<Long, Exercise>>(initialValue = emptyMap()) {
-        value = exerciseDao.getAllExercises().first().associateBy { it.id }
-    }
+    val exercisesList by exerciseDao.getAllExercises().collectAsState(initial = emptyList())
+    val exercises = remember(exercisesList) { exercisesList.associateBy { it.id } }
 
     var editingTemplate by remember { mutableStateOf<Template?>(null) }
     var isCreatingTemplate by remember { mutableStateOf(false) }
@@ -189,9 +189,7 @@ fun TemplateCardItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val slots by produceState<List<TemplateSlot>>(initialValue = emptyList(), key1 = template.id) {
-        value = templateDao.getSlotsForTemplateSync(template.id)
-    }
+    val slots by templateDao.getSlotsForTemplate(template.id).collectAsState(initial = emptyList())
 
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -286,7 +284,10 @@ fun TemplateCardItem(
 data class SlotDraft(
     val exerciseId: Long,
     val exerciseName: String,
-    val supersetGroup: Int? = null
+    val supersetGroup: Int? = null,
+    val sets: Int = 3,
+    val repLo: Int = 8,
+    val repHi: Int = 12
 )
 
 @Composable
@@ -311,8 +312,12 @@ fun TemplateEditDialog(
             val existingSlots = templateDao.getSlotsForTemplateSync(template.id)
             draftSlots.clear()
             existingSlots.forEach { s ->
-                val name = exMap[s.exerciseId]?.name ?: "Exercise ${s.exerciseId}"
-                draftSlots.add(SlotDraft(s.exerciseId, name, s.supersetGroup))
+                val ex = exMap[s.exerciseId]
+                val name = ex?.name ?: "Exercise ${s.exerciseId}"
+                val sets = ex?.defaultSets ?: 3
+                val repLo = ex?.repLo ?: 8
+                val repHi = ex?.repHi ?: 12
+                draftSlots.add(SlotDraft(s.exerciseId, name, s.supersetGroup, sets, repLo, repHi))
             }
         }
         value = true
@@ -390,6 +395,93 @@ fun TemplateEditDialog(
                                             text = "${index + 1}. ${slot.exerciseName}",
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                                         )
+
+                                        // Sets and Reps editor
+                                        Row(
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            // Sets stepper
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("Sets:", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                                IconButton(
+                                                    onClick = {
+                                                        if (slot.sets > 1) {
+                                                            draftSlots[index] = slot.copy(sets = slot.sets - 1)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Remove, contentDescription = "Fewer sets", modifier = Modifier.size(12.dp))
+                                                }
+                                                Text(
+                                                    text = "${slot.sets}",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = SecondaryTeal)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        draftSlots[index] = slot.copy(sets = slot.sets + 1)
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Add, contentDescription = "More sets", modifier = Modifier.size(12.dp))
+                                                }
+                                            }
+
+                                            // Reps stepper: repLo - repHi
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("Reps:", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                                IconButton(
+                                                    onClick = {
+                                                        if (slot.repLo > 1) {
+                                                            val newLo = slot.repLo - 1
+                                                            draftSlots[index] = slot.copy(repLo = newLo, repHi = maxOf(newLo, slot.repHi))
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Remove, contentDescription = "Fewer repLo", modifier = Modifier.size(12.dp))
+                                                }
+                                                Text(
+                                                    text = "${slot.repLo}",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        val newLo = slot.repLo + 1
+                                                        draftSlots[index] = slot.copy(repLo = newLo, repHi = maxOf(newLo, slot.repHi))
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Add, contentDescription = "More repLo", modifier = Modifier.size(12.dp))
+                                                }
+                                                Text("–", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                                IconButton(
+                                                    onClick = {
+                                                        if (slot.repHi > slot.repLo) {
+                                                            draftSlots[index] = slot.copy(repHi = slot.repHi - 1)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Remove, contentDescription = "Fewer repHi", modifier = Modifier.size(12.dp))
+                                                }
+                                                Text(
+                                                    text = "${slot.repHi}",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                                                )
+                                                IconButton(
+                                                    onClick = {
+                                                        draftSlots[index] = slot.copy(repHi = slot.repHi + 1)
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Add, contentDescription = "More repHi", modifier = Modifier.size(12.dp))
+                                                }
+                                            }
+                                        }
+
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
                                                 text = "Superset: ",
@@ -479,6 +571,15 @@ fun TemplateEditDialog(
                                 )
                             }
                             templateDao.insertSlots(newSlots)
+
+                            // Update exercises defaultSets, repLo, repHi
+                            for (draft in draftSlots) {
+                                val ex = allExercises.find { it.id == draft.exerciseId }
+                                if (ex != null && (ex.defaultSets != draft.sets || ex.repLo != draft.repLo || ex.repHi != draft.repHi)) {
+                                    exerciseDao.updateExercise(ex.copy(defaultSets = draft.sets, repLo = draft.repLo, repHi = draft.repHi))
+                                }
+                            }
+
                             onSave()
                         }
                     }
@@ -518,14 +619,17 @@ fun TemplateEditDialog(
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(DarkSurfaceVariant)
                                     .clickable {
-                                        draftSlots.add(SlotDraft(ex.id, ex.name, null))
+                                        draftSlots.add(SlotDraft(ex.id, ex.name, null, ex.defaultSets, ex.repLo, ex.repHi))
                                         showAddExercisePicker = false
                                     }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(ex.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                Column {
+                                    Text(ex.name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text("${ex.defaultSets} sets • ${ex.repLo}–${ex.repHi} reps", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                                }
                                 Text(ex.equipment.uppercase(), style = MaterialTheme.typography.labelSmall, color = TextMuted)
                             }
                         }

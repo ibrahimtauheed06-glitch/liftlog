@@ -6,6 +6,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
@@ -42,7 +45,9 @@ class RestTimerService : Service() {
 
     companion object {
         const val CHANNEL_ID = "liftlog_rest_timer_channel"
+        const val CHANNEL_ALERT_ID = "liftlog_rest_timer_alert_channel"
         const val NOTIFICATION_ID = 1001
+        const val ALERT_NOTIFICATION_ID = 1002
 
         const val ACTION_START = "com.liftlog.action.START_TIMER"
         const val ACTION_ADD_15 = "com.liftlog.action.ADD_15"
@@ -81,6 +86,11 @@ class RestTimerService : Service() {
 
         fun skipTimer(context: Context) {
             val intent = Intent(context, RestTimerService::class.java).apply { action = ACTION_SKIP }
+            context.startService(intent)
+        }
+
+        fun stopTimer(context: Context) {
+            val intent = Intent(context, RestTimerService::class.java).apply { action = ACTION_STOP }
             context.startService(intent)
         }
     }
@@ -173,17 +183,66 @@ class RestTimerService : Service() {
             isFinished = true
         )
         triggerGentleVibration()
-        val finishedNotification = NotificationCompat.Builder(this, CHANNEL_ID)
+        playChimeWithMusicDucking()
+
+        val alertSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val finishedNotification = NotificationCompat.Builder(this, CHANNEL_ALERT_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Rest Complete")
-            .setContentText("Ready for next set of $exerciseName")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentText("Ready for: $exerciseName")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSound(alertSound)
+            .setVibrate(longArrayOf(0, 150, 100, 150))
             .setAutoCancel(true)
             .setContentIntent(createOpenAppPendingIntent())
             .build()
-        notificationManager.notify(NOTIFICATION_ID, finishedNotification)
-        stopForeground(STOP_FOREGROUND_DETACH)
+
+        notificationManager.notify(ALERT_NOTIFICATION_ID, finishedNotification)
+        stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun playChimeWithMusicDucking() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                            .build()
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .build()
+            } else null
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(null, AudioManager.STREAM_NOTIFICATION, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            }
+
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val ringtone = RingtoneManager.getRingtone(applicationContext, soundUri)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ringtone.isLooping = false
+                ringtone.volume = 1.0f
+            }
+            ringtone.play()
+
+            serviceScope.launch {
+                delay(2000L)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
+                    audioManager.abandonAudioFocusRequest(focusRequest)
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.abandonAudioFocus(null)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun triggerGentleVibration() {
@@ -208,6 +267,7 @@ class RestTimerService : Service() {
     private fun stopTimer() {
         countdownJob?.cancel()
         _timerState.value = RestTimerState()
+        notificationManager.cancel(NOTIFICATION_ID)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -265,15 +325,33 @@ class RestTimerService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            val countdownChannel = NotificationChannel(
                 CHANNEL_ID,
-                "Workout Rest Timer",
+                "Workout Rest Timer (Countdown)",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Shows remaining rest time between workout sets"
                 setShowBadge(false)
             }
-            notificationManager.createNotificationChannel(channel)
+            notificationManager.createNotificationChannel(countdownChannel)
+
+            val alertSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                .build()
+
+            val alertChannel = NotificationChannel(
+                CHANNEL_ALERT_ID,
+                "Rest Complete Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifies when rest timer finishes with sound and vibration"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 150, 100, 150)
+                setSound(alertSound, audioAttributes)
+            }
+            notificationManager.createNotificationChannel(alertChannel)
         }
     }
 
