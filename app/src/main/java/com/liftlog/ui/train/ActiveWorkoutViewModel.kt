@@ -153,7 +153,9 @@ class ActiveWorkoutViewModel(
         val exItem = _uiState.value.exercises.find { it.exercise.id == exerciseId } ?: return
 
         viewModelScope.launch {
-            val isLastPlannedSet = (exItem.loggedSets.size + 1) >= exItem.plannedSets
+            val currentWorkingCount = exItem.loggedSets.count { it.type != "warmup" }
+            val isWorkingSet = input.type != "warmup"
+            val isLastPlannedSet = if (isWorkingSet) (currentWorkingCount + 1) >= exItem.plannedSets else false
             val effectiveRpe = if (isLastPlannedSet) input.rpe else null
 
             val (_, prResult) = workoutRepository.logSet(
@@ -178,7 +180,7 @@ class ActiveWorkoutViewModel(
                     } else null
                     if (nextEx != null) "Next: ${nextEx.exercise.name}" else "${exItem.exercise.name} (Rest)"
                 } else {
-                    "${exItem.exercise.name} (Set ${exItem.loggedSets.size + 2})"
+                    "${exItem.exercise.name} (Set ${currentWorkingCount + 2})"
                 }
                 RestTimerService.startTimer(context, restSec, timerTitle)
             }
@@ -189,16 +191,16 @@ class ActiveWorkoutViewModel(
             val newInputs = _uiState.value.prefilledInputs.toMutableMap()
 
             if (updatedItem != null) {
-                val loggedCount = updatedItem.loggedSets.size
+                val loggedWarmupCount = updatedItem.loggedSets.count { it.type == "warmup" }
                 val warmupCount = updatedItem.warmupTargets.size
-                val nextType = if (loggedCount < warmupCount) "warmup" else "working"
-                val nextWeight = if (loggedCount < warmupCount) {
-                    updatedItem.warmupTargets[loggedCount].weightKg
+                val nextType = if (loggedWarmupCount < warmupCount) "warmup" else "working"
+                val nextWeight = if (loggedWarmupCount < warmupCount) {
+                    updatedItem.warmupTargets[loggedWarmupCount].weightKg
                 } else {
                     updatedItem.target.targetWeightKg
                 }
-                val nextReps = if (loggedCount < warmupCount) {
-                    updatedItem.warmupTargets[loggedCount].reps
+                val nextReps = if (loggedWarmupCount < warmupCount) {
+                    updatedItem.warmupTargets[loggedWarmupCount].reps
                 } else {
                     updatedItem.target.targetReps
                 }

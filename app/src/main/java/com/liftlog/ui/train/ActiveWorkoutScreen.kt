@@ -186,8 +186,10 @@ fun ActiveWorkoutScreen(
 
                 val listState = rememberLazyListState()
 
-                // Auto-advance scroll to the next exercise when designated sets of previous exercise are completed
-                val firstIncompleteIndex = state.exercises.indexOfFirst { it.loggedSets.size < it.plannedSets }
+                // Auto-advance scroll to the next exercise when designated working sets of previous exercise are completed
+                val firstIncompleteIndex = state.exercises.indexOfFirst {
+                    it.loggedSets.count { s -> s.type != "warmup" } < it.plannedSets
+                }
                 LaunchedEffect(firstIncompleteIndex) {
                     if (firstIncompleteIndex > 0) {
                         listState.animateScrollToItem(firstIncompleteIndex)
@@ -256,14 +258,17 @@ fun ActiveWorkoutScreen(
 
     // Finish Workout Dialog
     if (showFinishDialog) {
-        val totalSets = state.exercises.sumOf { it.loggedSets.size }
+        val workingSetsCount = state.exercises.sumOf { it.loggedSets.count { s -> s.type != "warmup" } }
+        val warmupSetsCount = state.exercises.sumOf { it.loggedSets.count { s -> s.type == "warmup" } }
+        val setsText = if (warmupSetsCount > 0) "$workingSetsCount working sets (+$warmupSetsCount warmup)" else "$workingSetsCount total sets"
+
         AlertDialog(
             onDismissRequest = { showFinishDialog = false },
             title = { Text("Complete Workout") },
             text = {
                 Column {
                     Text(
-                        text = "Great work! You logged $totalSets total sets in $formattedDuration.",
+                        text = "Great work! You logged $setsText in $formattedDuration.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )

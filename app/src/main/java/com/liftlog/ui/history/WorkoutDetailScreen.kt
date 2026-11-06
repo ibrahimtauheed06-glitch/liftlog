@@ -201,12 +201,13 @@ fun WorkoutDetailScreen(
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    text = "${state.totalSets}",
+                                    text = "${state.workingSets}",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = TextPrimary
                                 )
+                                val setsSub = if (state.warmupSets > 0) "Working (+${state.warmupSets}w)" else "Working Sets"
                                 Text(
-                                    text = "Total Sets",
+                                    text = setsSub,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextMuted
                                 )

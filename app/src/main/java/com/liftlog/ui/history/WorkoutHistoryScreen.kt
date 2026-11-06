@@ -57,6 +57,7 @@ import com.liftlog.ui.theme.DarkSurface
 import com.liftlog.ui.theme.DarkSurfaceVariant
 import com.liftlog.ui.theme.PrimaryBlue
 import com.liftlog.ui.theme.SecondaryTeal
+import com.liftlog.ui.theme.TertiaryAmber
 import com.liftlog.ui.theme.TextMuted
 import com.liftlog.ui.theme.TextPrimary
 import com.liftlog.ui.theme.TextSecondary
@@ -291,8 +292,13 @@ private fun PastWorkoutCard(
                     )
                 }
 
+                val setsLabel = if (item.warmupSets > 0) {
+                    "${item.workingSets} working (+${item.warmupSets}w)"
+                } else {
+                    "${item.workingSets} sets"
+                }
                 Text(
-                    text = "${item.totalSets} sets",
+                    text = setsLabel,
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = TextPrimary
                 )
@@ -309,29 +315,44 @@ private fun PastWorkoutCard(
 
             if (item.exerciseSummaries.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     item.exerciseSummaries.forEach { ex ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DarkSurfaceVariant.copy(alpha = 0.4f))
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = "• ${ex.exerciseName}",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = TextSecondary,
-                                modifier = Modifier.weight(1f)
-                            )
-                            val detailText = if (ex.topSetSummary.isNotBlank()) {
-                                "${ex.setCount} sets (${ex.topSetSummary})"
-                            } else {
-                                "${ex.setCount} sets"
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = ex.exerciseName,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = ex.workingSummary,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = SecondaryTeal
+                                )
                             }
-                            Text(
-                                text = detailText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextMuted
-                            )
+                            if (ex.warmupSummary != null) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    Text(
+                                        text = ex.warmupSummary,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TertiaryAmber
+                                    )
+                                }
+                            }
                         }
                     }
                 }

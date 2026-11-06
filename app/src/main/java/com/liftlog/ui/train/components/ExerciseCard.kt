@@ -76,7 +76,10 @@ fun ExerciseCard(
     modifier: Modifier = Modifier
 ) {
     var editingSet by remember { mutableStateOf<SetEntry?>(null) }
-    var showExtraSetInput by remember(item.loggedSets.size) { mutableStateOf(false) }
+    val workingSets = item.loggedSets.filter { it.type != "warmup" }
+    val warmupSets = item.loggedSets.filter { it.type == "warmup" }
+    val workingSetsCount = workingSets.size
+    var showExtraSetInput by remember(workingSetsCount) { mutableStateOf(false) }
 
     val isBodyweight = item.exercise.bwFactor > 0.0
 
@@ -175,12 +178,10 @@ fun ExerciseCard(
                     )
                 }
 
-                // Real-time Today display: dynamically reflects logged sets as they are completed
-                if (item.loggedSets.isNotEmpty()) {
-                    val workingSets = item.loggedSets.filter { it.type == "working" }
-                    val setsToShow = if (workingSets.isNotEmpty()) workingSets else item.loggedSets
-                    val repsStr = setsToShow.joinToString(",") { "${it.reps}" }
-                    val lastWeight = setsToShow.last().weightKg
+                // Real-time Today display: dynamically reflects working sets, warmups don't count toward planned limit
+                if (workingSets.isNotEmpty()) {
+                    val repsStr = workingSets.joinToString(",") { "${it.reps}" }
+                    val lastWeight = workingSets.last().weightKg
                     val weightStr = if (isBodyweight) {
                         if (lastWeight > 0.0) {
                             "BW+${if (lastWeight % 1.0 == 0.0) lastWeight.toInt() else lastWeight}kg"
@@ -189,10 +190,11 @@ fun ExerciseCard(
                         if (lastWeight % 1.0 == 0.0) "${lastWeight.toInt()}kg" else "${lastWeight}kg"
                     }
 
-                    val isComplete = item.loggedSets.size >= item.plannedSets
-                    val progressLabel = if (isComplete) " (Done)" else " (${item.loggedSets.size}/${item.plannedSets})"
+                    val isComplete = workingSetsCount >= item.plannedSets
+                    val progressLabel = if (isComplete) " (Done)" else " ($workingSetsCount/${item.plannedSets})"
+                    val warmupNote = if (warmupSets.isNotEmpty()) " • ${warmupSets.size}w" else ""
                     Text(
-                        text = "Today: $weightStr × $repsStr$progressLabel",
+                        text = "Today: $weightStr × $repsStr$progressLabel$warmupNote",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = if (isComplete) SuccessGreen else PrimaryBlue
@@ -209,8 +211,9 @@ fun ExerciseCard(
                     } else {
                         "${targetWeightStr}kg"
                     }
+                    val warmupNote = if (warmupSets.isNotEmpty()) " (0/${item.plannedSets}) • ${warmupSets.size}w" else ""
                     Text(
-                        text = "Today: $targetWeightDisplay × ${item.target.targetReps}",
+                        text = "Today: $targetWeightDisplay × ${item.target.targetReps}$warmupNote",
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue)
                     )
                 }
@@ -280,12 +283,22 @@ fun ExerciseCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Logged sets list
+            // Logged sets list (with distinct W1, W2 for warmup and 1, 2 for working sets)
             if (item.loggedSets.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    item.loggedSets.forEachIndexed { idx, set ->
+                    var workingCounter = 0
+                    var warmupCounter = 0
+                    item.loggedSets.forEach { set ->
+                        val (label, isWarmup) = if (set.type == "warmup") {
+                            warmupCounter++
+                            "W$warmupCounter" to true
+                        } else {
+                            workingCounter++
+                            "$workingCounter" to false
+                        }
                         LoggedSetItem(
-                            index = idx + 1,
+                            index = if (isWarmup) 0 else workingCounter,
+                            customIndexLabel = label,
                             set = set,
                             isBodyweight = isBodyweight,
                             onEditClick = { editingSet = set }
@@ -295,8 +308,8 @@ fun ExerciseCard(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Prescribed sets completion guard & Extra Sets
-            val isCompleted = item.loggedSets.size >= item.plannedSets
+            // Prescribed sets completion guard & Extra Sets (warmups do not count toward plannedSets)
+            val isCompleted = workingSetsCount >= item.plannedSets
             if (isCompleted && !showExtraSetInput) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -320,7 +333,7 @@ fun ExerciseCard(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Completed (${item.loggedSets.size}/${item.plannedSets} Sets)",
+                                text = "Completed ($workingSetsCount/${item.plannedSets} Sets)",
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = SuccessGreen
@@ -342,8 +355,13 @@ fun ExerciseCard(
                     }
                 }
             } else if (currentInput != null) {
-                val nextSetIndex = item.loggedSets.size + 1
-                val isLastPlanned = nextSetIndex >= item.plannedSets
+                val isWarmup = currentInput.type == "warmup"
+                val nextSetIndex = if (isWarmup) {
+                    warmupSets.size + 1
+                } else {
+                    workingSetsCount + 1
+                }
+                val isLastPlanned = !isWarmup && (nextSetIndex >= item.plannedSets)
 
                 CurrentSetInputRow(
                     setIndex = nextSetIndex,

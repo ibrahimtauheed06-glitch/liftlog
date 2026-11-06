@@ -36,6 +36,8 @@ data class WorkoutDetailUiState(
     val allAvailableExercises: List<Exercise> = emptyList(),
     val totalVolumeKg: Double = 0.0,
     val totalSets: Int = 0,
+    val workingSets: Int = 0,
+    val warmupSets: Int = 0,
     val isLoading: Boolean = true,
     val isDeleted: Boolean = false
 )
@@ -80,6 +82,8 @@ class WorkoutDetailViewModel(
                 }
 
                 val totalVol = sets.filter { it.type == "working" }.sumOf { it.weightKg * it.reps }
+                val workingCount = sets.count { it.type != "warmup" }
+                val warmupCount = sets.count { it.type == "warmup" }
 
                 _uiState.value = WorkoutDetailUiState(
                     workout = workout,
@@ -92,6 +96,8 @@ class WorkoutDetailViewModel(
                     allAvailableExercises = allExList,
                     totalVolumeKg = totalVol,
                     totalSets = sets.size,
+                    workingSets = workingCount,
+                    warmupSets = warmupCount,
                     isLoading = false
                 )
             }

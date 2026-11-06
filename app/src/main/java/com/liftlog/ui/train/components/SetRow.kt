@@ -69,8 +69,13 @@ fun LoggedSetItem(
     set: SetEntry,
     onEditClick: () -> Unit,
     isBodyweight: Boolean = false,
+    customIndexLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val isWarmup = set.type == "warmup"
+    val badgeLabel = customIndexLabel ?: if (isWarmup) "W" else "$index"
+    val badgeColor = if (isWarmup) TertiaryAmber else SuccessGreen
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -86,12 +91,12 @@ fun LoggedSetItem(
                 modifier = Modifier
                     .size(24.dp)
                     .clip(CircleShape)
-                    .background(SuccessGreen.copy(alpha = 0.2f)),
+                    .background(badgeColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "$index",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = SuccessGreen)
+                    text = badgeLabel,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = badgeColor)
                 )
             }
 
@@ -108,7 +113,20 @@ fun LoggedSetItem(
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = TextPrimary)
             )
 
-            if (set.type != "working") {
+            if (isWarmup) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = TertiaryAmber.copy(alpha = 0.2f),
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                ) {
+                    Text(
+                        text = "WARMUP",
+                        style = MaterialTheme.typography.labelSmall.copy(color = TertiaryAmber, fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+            } else if (set.type != "working") {
                 Spacer(modifier = Modifier.width(8.dp))
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -475,8 +493,9 @@ fun CurrentSetInputRow(
                 } else {
                     Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black)
                     Spacer(modifier = Modifier.width(6.dp))
+                    val btnText = if (input.type == "warmup") "LOG WARMUP SET $setIndex" else "LOG SET $setIndex"
                     Text(
-                        text = "LOG SET $setIndex",
+                        text = btnText,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.Black

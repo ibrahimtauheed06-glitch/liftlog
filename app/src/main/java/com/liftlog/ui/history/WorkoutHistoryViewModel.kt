@@ -19,8 +19,11 @@ import java.util.Locale
 
 data class PastWorkoutExerciseSummary(
     val exerciseName: String,
-    val setCount: Int,
-    val topSetSummary: String
+    val isBodyweight: Boolean,
+    val workingCount: Int,
+    val warmupCount: Int,
+    val workingSummary: String,
+    val warmupSummary: String?
 )
 
 data class PastWorkoutItem(
@@ -31,7 +34,8 @@ data class PastWorkoutItem(
     val durationMinutes: Long,
     val formattedDate: String,
     val formattedTime: String,
-    val totalSets: Int,
+    val workingSets: Int,
+    val warmupSets: Int,
     val totalVolumeKg: Double,
     val note: String?,
     val exerciseSummaries: List<PastWorkoutExerciseSummary>
@@ -67,18 +71,59 @@ class WorkoutHistoryViewModel(
                     val routineName = workout.templateId?.let { templates[it]?.name } ?: "Custom Workout"
                     val durationMin = maxOf(1L, ((workout.endTs ?: workout.startTs) - workout.startTs) / (1000 * 60))
 
+                    val workingTotal = sets.count { it.type != "warmup" }
+                    val warmupTotal = sets.count { it.type == "warmup" }
+
                     val groupedByExercise = sets.groupBy { it.exerciseId }
                     val summaries = groupedByExercise.map { (exId, exSets) ->
-                        val exName = exercises[exId]?.name ?: "Exercise"
-                        val topSet = exSets.maxByOrNull { it.weightKg }
-                        val topSummary = if (topSet != null) {
-                            val wStr = if (topSet.weightKg % 1.0 == 0.0) topSet.weightKg.toInt().toString() else topSet.weightKg.toString()
-                            "${wStr}kg × ${topSet.reps}"
-                        } else ""
+                        val ex = exercises[exId]
+                        val exName = ex?.name ?: "Exercise"
+                        val isBw = (ex?.bwFactor ?: 0.0) > 0.0
+
+                        val working = exSets.filter { it.type != "warmup" }
+                        val warmups = exSets.filter { it.type == "warmup" }
+
+                        fun formatSetGroup(group: List<com.liftlog.data.entity.SetEntry>): String {
+                            if (group.isEmpty()) return ""
+                            val weights = group.map { it.weightKg }.distinct()
+                            return if (weights.size == 1) {
+                                val w = weights.first()
+                                val repsList = group.joinToString(",") { "${it.reps}" }
+                                val wStr = if (isBw) {
+                                    if (w > 0.0) "BW+${if (w % 1.0 == 0.0) w.toInt() else w}kg" else "BW"
+                                } else {
+                                    "${if (w % 1.0 == 0.0) w.toInt() else w}kg"
+                                }
+                                "$wStr × $repsList"
+                            } else {
+                                group.joinToString(", ") { s ->
+                                    val wStr = if (isBw) {
+                                        if (s.weightKg > 0.0) "BW+${if (s.weightKg % 1.0 == 0.0) s.weightKg.toInt() else s.weightKg}kg" else "BW"
+                                    } else {
+                                        "${if (s.weightKg % 1.0 == 0.0) s.weightKg.toInt() else s.weightKg}kg"
+                                    }
+                                    "$wStr×${s.reps}"
+                                }
+                            }
+                        }
+
+                        val workingText = if (working.isNotEmpty()) {
+                            "${working.size} ${if (working.size == 1) "set" else "sets"}: ${formatSetGroup(working)}"
+                        } else {
+                            "0 sets"
+                        }
+
+                        val warmupText = if (warmups.isNotEmpty()) {
+                            "${warmups.size} warmup: ${formatSetGroup(warmups)}"
+                        } else null
+
                         PastWorkoutExerciseSummary(
                             exerciseName = exName,
-                            setCount = exSets.size,
-                            topSetSummary = topSummary
+                            isBodyweight = isBw,
+                            workingCount = working.size,
+                            warmupCount = warmups.size,
+                            workingSummary = workingText,
+                            warmupSummary = warmupText
                         )
                     }
 
@@ -92,7 +137,8 @@ class WorkoutHistoryViewModel(
                         durationMinutes = durationMin,
                         formattedDate = dateFormat.format(Date(workout.startTs)),
                         formattedTime = timeFormat.format(Date(workout.startTs)),
-                        totalSets = sets.size,
+                        workingSets = workingTotal,
+                        warmupSets = warmupTotal,
                         totalVolumeKg = totalVol,
                         note = workout.note,
                         exerciseSummaries = summaries

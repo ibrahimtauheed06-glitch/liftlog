@@ -38,6 +38,37 @@ class DeloadDetectorTest {
     }
 
     @Test
+    fun testStall_loadZero_repsDoNotImproveAcross3Sessions() {
+        val now = System.currentTimeMillis()
+        val day = 24L * 60 * 60 * 1000
+
+        // Bodyweight exercise (bwFactor = 0, weightKg = 0) e.g. Decline Crunch
+        // Session 2 (oldest): 0kg x 15 reps
+        // Session 1: 0kg x 15 reps
+        // Session 0 (latest): 0kg x 14 reps
+        val s0 = SessionData(now - (1 * day), listOf(SetData(0.0, 14, "working")))
+        val s1 = SessionData(now - (4 * day), listOf(SetData(0.0, 15, "working")))
+        val s2 = SessionData(now - (8 * day), listOf(SetData(0.0, 15, "working")))
+
+        val isStalled = DeloadDetector.isExerciseStalled(listOf(s0, s1, s2), bwFactor = 0.0)
+        assertTrue(isStalled)
+    }
+
+    @Test
+    fun testNotStalled_loadZero_whenRepsImprove() {
+        val now = System.currentTimeMillis()
+        val day = 24L * 60 * 60 * 1000
+
+        // Session 0 improved to 16 reps
+        val s0 = SessionData(now - (1 * day), listOf(SetData(0.0, 16, "working")))
+        val s1 = SessionData(now - (4 * day), listOf(SetData(0.0, 15, "working")))
+        val s2 = SessionData(now - (8 * day), listOf(SetData(0.0, 14, "working")))
+
+        val isStalled = DeloadDetector.isExerciseStalled(listOf(s0, s1, s2), bwFactor = 0.0)
+        assertFalse(isStalled)
+    }
+
+    @Test
     fun testDeloadSuggestion_threeExercisesStalledWithin14Days() {
         val now = System.currentTimeMillis()
         val day = 24L * 60 * 60 * 1000

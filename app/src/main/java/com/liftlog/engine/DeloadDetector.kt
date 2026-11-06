@@ -16,6 +16,26 @@ object DeloadDetector {
     ): Boolean {
         if (sessions.size < 3) return false
         val last3 = sessions.take(3)
+
+        // If load is 0 (weightKg == 0 and bwFactor == 0), compare top-set reps instead
+        val isLoadZero = bwFactor == 0.0 && last3.all { session ->
+            val valid = session.sets.filter { it.type == "working" && !it.flagSwung && !it.flagPain }
+            valid.isNotEmpty() && valid.all { it.weightKg == 0.0 }
+        }
+
+        if (isLoadZero) {
+            val topReps = last3.map { session ->
+                session.sets
+                    .filter { it.type == "working" && !it.flagSwung && !it.flagPain }
+                    .maxOfOrNull { it.reps } ?: 0
+            }
+            if (topReps.any { it <= 0 }) return false
+            val latest = topReps[0]
+            val prev1 = topReps[1]
+            val prev2 = topReps[2]
+            return latest <= prev1 && prev1 <= prev2
+        }
+
         val e1rms = last3.map { session ->
             session.sets
                 .filter { it.type == "working" && !it.flagSwung && !it.flagPain }

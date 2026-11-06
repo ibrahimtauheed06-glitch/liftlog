@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
         BodyweightEntry::class,
         RunEntry::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class LiftLogDatabase : RoomDatabase() {
@@ -69,6 +69,192 @@ abstract class LiftLogDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. FIX EXISTING "cable crunches"
+                val cursorCable = db.query(
+                    "SELECT id FROM exercises WHERE LOWER(name) IN ('cable crunches', 'cable crunch') LIMIT 1"
+                )
+                val cableCrunchId = if (cursorCable.moveToFirst()) {
+                    val id = cursorCable.getLong(0)
+                    cursorCable.close()
+                    db.execSQL(
+                        """
+                        UPDATE exercises SET
+                            name = 'Cable Crunch',
+                            equipment = 'cable',
+                            plateKg = 5.0,
+                            incrementKg = 5.0,
+                            repLo = 10,
+                            repHi = 15,
+                            defaultSets = 3,
+                            restSec = 75,
+                            isCompound = 0,
+                            bwFactor = 0.0,
+                            primaryMuscles = 'Abs',
+                            setupNote = 'Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don''t sit back on heels.',
+                            archived = 0
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf(id)
+                    )
+                    id
+                } else {
+                    cursorCable.close()
+                    db.execSQL(
+                        """
+                        INSERT INTO exercises (
+                            name, equipment, incrementKg, plateKg, repLo, repHi, defaultSets, defaultWeightKg,
+                            restSec, isCompound, bwFactor, primaryMuscles, secondaryMuscles, setupNote, homeCapKg, variantOf, archived
+                        ) VALUES (
+                            'Cable Crunch', 'cable', 5.0, 5.0, 10, 15, 3, 0.0,
+                            75, 0, 0.0, 'Abs', '', 'Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don''t sit back on heels.', NULL, NULL, 0
+                        )
+                        """.trimIndent()
+                    )
+                    val c = db.query("SELECT last_insert_rowid()")
+                    c.moveToFirst()
+                    val newId = c.getLong(0)
+                    c.close()
+                    newId
+                }
+
+                // Ensure Cable Crunch is in Lower B at slot 5 (slotOrder 4)
+                val cursorLowerB = db.query("SELECT id FROM templates WHERE LOWER(name) = 'lower b' LIMIT 1")
+                if (cursorLowerB.moveToFirst()) {
+                    val lowerBId = cursorLowerB.getLong(0)
+                    cursorLowerB.close()
+
+                    val cExistingSlot = db.query(
+                        "SELECT id FROM template_slots WHERE templateId = ? AND exerciseId = ?",
+                        arrayOf(lowerBId, cableCrunchId)
+                    )
+                    if (cExistingSlot.moveToFirst()) {
+                        val slotId = cExistingSlot.getLong(0)
+                        cExistingSlot.close()
+                        db.execSQL("UPDATE template_slots SET slotOrder = 4, supersetGroup = NULL WHERE id = ?", arrayOf(slotId))
+                    } else {
+                        cExistingSlot.close()
+                        val cSlot4 = db.query(
+                            "SELECT id FROM template_slots WHERE templateId = ? AND slotOrder = 4",
+                            arrayOf(lowerBId)
+                        )
+                        if (cSlot4.moveToFirst()) {
+                            val slotId = cSlot4.getLong(0)
+                            cSlot4.close()
+                            db.execSQL("UPDATE template_slots SET exerciseId = ?, supersetGroup = NULL WHERE id = ?", arrayOf(cableCrunchId, slotId))
+                        } else {
+                            cSlot4.close()
+                            db.execSQL(
+                                "INSERT INTO template_slots (templateId, exerciseId, slotOrder, supersetGroup) VALUES (?, ?, 4, NULL)",
+                                arrayOf(lowerBId, cableCrunchId)
+                            )
+                        }
+                    }
+                } else {
+                    cursorLowerB.close()
+                }
+
+                // 2. ADD Decline Crunch (or update if already exists)
+                val cursorDecline = db.query("SELECT id FROM exercises WHERE LOWER(name) = 'decline crunch' LIMIT 1")
+                val declineCrunchId = if (cursorDecline.moveToFirst()) {
+                    val id = cursorDecline.getLong(0)
+                    cursorDecline.close()
+                    db.execSQL(
+                        """
+                        UPDATE exercises SET
+                            name = 'Decline Crunch',
+                            equipment = 'bodyweight',
+                            incrementKg = 2.5,
+                            homeCapKg = 10.0,
+                            repLo = 12,
+                            repHi = 20,
+                            defaultSets = 3,
+                            restSec = 75,
+                            isCompound = 0,
+                            bwFactor = 0.0,
+                            primaryMuscles = 'Abs',
+                            setupNote = 'Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don''t sit up fully. Start bodyweight, then hold a dumbbell at chest.',
+                            archived = 0
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf(id)
+                    )
+                    id
+                } else {
+                    cursorDecline.close()
+                    db.execSQL(
+                        """
+                        INSERT INTO exercises (
+                            name, equipment, incrementKg, plateKg, repLo, repHi, defaultSets, defaultWeightKg,
+                            restSec, isCompound, bwFactor, primaryMuscles, secondaryMuscles, setupNote, homeCapKg, variantOf, archived
+                        ) VALUES (
+                            'Decline Crunch', 'bodyweight', 2.5, NULL, 12, 20, 3, 0.0,
+                            75, 0, 0.0, 'Abs', '', 'Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don''t sit up fully. Start bodyweight, then hold a dumbbell at chest.', 10.0, NULL, 0
+                        )
+                        """.trimIndent()
+                    )
+                    val c = db.query("SELECT last_insert_rowid()")
+                    c.moveToFirst()
+                    val newId = c.getLong(0)
+                    c.close()
+                    newId
+                }
+
+                // 3. ARCHIVE Hanging Leg Raise (keep all history, remove from Lower A template)
+                db.execSQL("UPDATE exercises SET archived = 1 WHERE LOWER(name) = 'hanging leg raise'")
+
+                val cursorLowerA = db.query("SELECT id FROM templates WHERE LOWER(name) = 'lower a' LIMIT 1")
+                if (cursorLowerA.moveToFirst()) {
+                    val lowerAId = cursorLowerA.getLong(0)
+                    cursorLowerA.close()
+
+                    val cursorHlr = db.query(
+                        """
+                        SELECT ts.id, ts.slotOrder FROM template_slots ts
+                        JOIN exercises e ON ts.exerciseId = e.id
+                        WHERE ts.templateId = ? AND LOWER(e.name) = 'hanging leg raise'
+                        LIMIT 1
+                        """.trimIndent(),
+                        arrayOf(lowerAId)
+                    )
+                    if (cursorHlr.moveToFirst()) {
+                        val slotId = cursorHlr.getLong(0)
+                        cursorHlr.close()
+                        db.execSQL("UPDATE template_slots SET exerciseId = ?, supersetGroup = NULL WHERE id = ?", arrayOf(declineCrunchId, slotId))
+                    } else {
+                        cursorHlr.close()
+                        val cSlot3 = db.query(
+                            "SELECT id FROM template_slots WHERE templateId = ? AND slotOrder = 3",
+                            arrayOf(lowerAId)
+                        )
+                        if (cSlot3.moveToFirst()) {
+                            val slotId = cSlot3.getLong(0)
+                            cSlot3.close()
+                            db.execSQL("UPDATE template_slots SET exerciseId = ?, supersetGroup = NULL WHERE id = ?", arrayOf(declineCrunchId, slotId))
+                        } else {
+                            cSlot3.close()
+                            db.execSQL(
+                                "INSERT INTO template_slots (templateId, exerciseId, slotOrder, supersetGroup) VALUES (?, ?, 3, NULL)",
+                                arrayOf(lowerAId, declineCrunchId)
+                            )
+                        }
+                    }
+
+                    // Ensure no remaining Hanging Leg Raise slots in Lower A
+                    db.execSQL(
+                        """
+                        DELETE FROM template_slots
+                        WHERE templateId = ? AND exerciseId IN (SELECT id FROM exercises WHERE LOWER(name) = 'hanging leg raise')
+                        """.trimIndent(),
+                        arrayOf(lowerAId)
+                    )
+                } else {
+                    cursorLowerA.close()
+                }
+            }
+        }
+
         fun getInstance(context: Context): LiftLogDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -76,7 +262,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                     LiftLogDatabase::class.java,
                     "liftlog.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
@@ -316,6 +502,21 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 setupNote = "2s pause at deep bottom stretch, 1s peak squeeze"
             ),
             Exercise(
+                name = "Decline Crunch",
+                equipment = "bodyweight",
+                incrementKg = 2.5,
+                homeCapKg = 10.0,
+                repLo = 12,
+                repHi = 20,
+                defaultSets = 3,
+                restSec = 75,
+                isCompound = false,
+                bwFactor = 0.0,
+                primaryMuscles = "Abs",
+                secondaryMuscles = "",
+                setupNote = "Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don't sit up fully. Start bodyweight, then hold a dumbbell at chest."
+            ),
+            Exercise(
                 name = "Hanging Leg Raise",
                 equipment = "bodyweight",
                 incrementKg = 0.0,
@@ -327,7 +528,8 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 bwFactor = 0.0,
                 primaryMuscles = "Abs",
                 secondaryMuscles = "",
-                setupNote = "Curl pelvis toward ribs, avoid excessive body swing"
+                setupNote = "Curl pelvis toward ribs, avoid excessive body swing",
+                archived = true
             ),
             Exercise(
                 name = "Leg Extension",
@@ -387,6 +589,21 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 primaryMuscles = "Hamstrings",
                 secondaryMuscles = "",
                 setupNote = "Keep hips flat against pad, curl heels to glutes"
+            ),
+            Exercise(
+                name = "Cable Crunch",
+                equipment = "cable",
+                plateKg = 5.0,
+                incrementKg = 5.0,
+                repLo = 10,
+                repHi = 15,
+                defaultSets = 3,
+                restSec = 75,
+                isCompound = false,
+                bwFactor = 0.0,
+                primaryMuscles = "Abs",
+                secondaryMuscles = "",
+                setupNote = "Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don't sit back on heels."
             )
         )
 
@@ -402,49 +619,46 @@ abstract class LiftLogDatabase : RoomDatabase() {
         val tUpperBId = templateDao().insertTemplate(Template(name = "Upper B", orderIndex = 2))
         val tLowerBId = templateDao().insertTemplate(Template(name = "Lower B", orderIndex = 3))
 
-        // Upper A slots:
-        // Bench Press | Weighted Pull-up | Seated/Chest-Supported Row SS1 | Cuffed Lateral Raise SS1 | Cuffed Triceps Extension SS2 | Strict Pad Curl SS2
+        // Upper A slots
         val upperASlots = listOf(
             TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Bench Press"]!!, slotOrder = 0),
             TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Weighted Pull-up"]!!, slotOrder = 1),
-            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Seated/Chest-Supported Row"]!!, slotOrder = 2, supersetGroup = 1),
-            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Cuffed Lateral Raise"]!!, slotOrder = 3, supersetGroup = 1),
-            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Cuffed Triceps Extension"]!!, slotOrder = 4, supersetGroup = 2),
-            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Strict Pad Curl"]!!, slotOrder = 5, supersetGroup = 2)
+            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Seated/Chest-Supported Row"]!!, slotOrder = 2),
+            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Cuffed Lateral Raise"]!!, slotOrder = 3),
+            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Cuffed Triceps Extension"]!!, slotOrder = 4),
+            TemplateSlot(templateId = tUpperAId, exerciseId = insertedExerciseIds["Strict Pad Curl"]!!, slotOrder = 5)
         )
         templateDao().insertSlots(upperASlots)
 
-        // Lower A slots:
-        // Hack Squat | Romanian Deadlift | Calf Raise | Hanging Leg Raise | Leg Extension (archived)
+        // Lower A slots: Hack Squat, Romanian Deadlift, Calf Raise, Decline Crunch, Leg Extension
         val lowerASlots = listOf(
             TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Hack Squat"]!!, slotOrder = 0),
             TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Romanian Deadlift"]!!, slotOrder = 1),
             TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Calf Raise"]!!, slotOrder = 2),
-            TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Hanging Leg Raise"]!!, slotOrder = 3),
+            TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Decline Crunch"]!!, slotOrder = 3),
             TemplateSlot(templateId = tLowerAId, exerciseId = insertedExerciseIds["Leg Extension"]!!, slotOrder = 4)
         )
         templateDao().insertSlots(lowerASlots)
 
-        // Upper B slots:
-        // Smith Overhead Press | Weighted Dip | Lat Pulldown | Cuffed Lateral Raise SS1 | Rear Delt Fly/Face Pull SS1 | Hammer Curl SS2 | Overhead Triceps Extension SS2
+        // Upper B slots
         val upperBSlots = listOf(
             TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Smith Overhead Press"]!!, slotOrder = 0),
             TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Weighted Dip"]!!, slotOrder = 1),
             TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Lat Pulldown"]!!, slotOrder = 2),
-            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Cuffed Lateral Raise"]!!, slotOrder = 3, supersetGroup = 1),
-            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Rear Delt Fly/Face Pull"]!!, slotOrder = 4, supersetGroup = 1),
-            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Hammer Curl"]!!, slotOrder = 5, supersetGroup = 2),
-            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Overhead Triceps Extension"]!!, slotOrder = 6, supersetGroup = 2)
+            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Cuffed Lateral Raise"]!!, slotOrder = 3),
+            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Rear Delt Fly/Face Pull"]!!, slotOrder = 4),
+            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Hammer Curl"]!!, slotOrder = 5),
+            TemplateSlot(templateId = tUpperBId, exerciseId = insertedExerciseIds["Overhead Triceps Extension"]!!, slotOrder = 6)
         )
         templateDao().insertSlots(upperBSlots)
 
-        // Lower B slots:
-        // Deadlift | Leg Press | Reverse Hamstring Curl | Calf Raise (shared)
+        // Lower B slots: Deadlift, Leg Press, Reverse Hamstring Curl, Calf Raise, Cable Crunch
         val lowerBSlots = listOf(
             TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Deadlift"]!!, slotOrder = 0),
             TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Leg Press"]!!, slotOrder = 1),
             TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Reverse Hamstring Curl"]!!, slotOrder = 2),
-            TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Calf Raise"]!!, slotOrder = 3)
+            TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Calf Raise"]!!, slotOrder = 3),
+            TemplateSlot(templateId = tLowerBId, exerciseId = insertedExerciseIds["Cable Crunch"]!!, slotOrder = 4)
         )
         templateDao().insertSlots(lowerBSlots)
     }

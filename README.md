@@ -14,7 +14,7 @@ LiftLog is a 100% offline, privacy-first personal workout tracker for Android bu
 2. **Modern Stack**:
    - **Language**: Kotlin 1.9 (JVM 17 target).
    - **UI**: Jetpack Compose + Material 3 (dark theme enforced by default).
-   - **Persistence**: Room Database with `exportSchema = true` and versioned non-destructive migrations (`MIGRATION_1_2`).
+   - **Persistence**: Room Database with `exportSchema = true` and versioned non-destructive migrations (`MIGRATION_1_2`, `MIGRATION_2_3`, `MIGRATION_3_4`).
    - **Settings**: Jetpack DataStore Preferences.
    - **State**: ViewModel + Kotlin StateFlow / Flow.
    - **Dependency Injection**: Manual DI via `AppContainer` (no Hilt/Koin).
@@ -52,6 +52,7 @@ All formulas reside in the pure-Kotlin `com.liftlog.engine` package and are test
    - A `"Return after N days"` chip is displayed on the exercise card.
 4. **Stall Detection**:
    - Flagged when there is no new best e1RM across the last 3 completed sessions of an exercise.
+   - For load-0 exercises (`weightKg == 0` and `bwFactor == 0`, e.g. bodyweight decline crunches), e1RM is meaningless; stall detection instead compares top-set reps across the last 3 completed sessions (stalled if no new best reps in the last 3 sessions). Progression remains unchanged: hitting `repHi` on all sets adds `incrementKg` and resets reps to `repLo`.
 5. **Deload Engine**:
    - If $\ge 3$ exercises are stalled within the last 14 days, a Deload banner appears on the Train tab.
    - **Accept**: Next 7 days use 90% weight and 1 fewer set ($\min 1\text{ set}$).
@@ -137,10 +138,10 @@ Pre-seeded with a 4-day Upper/Lower split (all fields fully editable):
 
 | Routine | Exercises |
 | :--- | :--- |
-| **Upper A (Mon)** | Bench Press (barbell, 3x5-8, +2.5kg, compound)<br>Weighted Pull-up (bw, 3x5-8, +2.5kg, compound)<br>Seated/Chest-Supported Row (cable, 3x8-12, +5kg) `SS1`<br>Cuffed Lateral Raise (cable, 5kg plate, 3x10-20, +5kg) `SS1`<br>Cuffed Triceps Extension (cable, 5kg plate, 2x8-12, +5kg) `SS2`<br>Strict Pad Curl (dumbbell, 2x8-12, +2.5kg, 10kg cap) `SS2` |
-| **Lower A (Tue)** | Hack Squat (machine, 3x6-10, +5kg, compound)<br>Romanian Deadlift (barbell, 3x6-10, +2.5kg, compound)<br>Calf Raise (machine, 3x8-15, +5kg)<br>Hanging Leg Raise (bw, 2x8-15, bwFactor 0, reps-only)<br>Leg Extension (machine, 2x10-15, +5kg, archived by default) |
-| **Upper B (Thu)** | Smith Overhead Press (machine, 3x6-10, +2.5kg, compound)<br>Weighted Dip (bw, 3x6-10, +2.5kg, compound)<br>Lat Pulldown (cable, 3x8-12, +5kg)<br>Cuffed Lateral Raise (cable, shared) `SS1`<br>Rear Delt Fly/Face Pull (cable, 2x12-20, +5kg) `SS1`<br>Hammer Curl (dumbbell, 2x8-12, +2.5kg, 10kg cap) `SS2`<br>Overhead Triceps Extension (cable, 2x8-12, +5kg) `SS2` |
-| **Lower B (Fri)** | Deadlift (barbell, 2x5, +2.5kg, compound)<br>Leg Press (machine, 3x8-12, +5kg, compound)<br>Reverse Hamstring Curl (machine, 3x8-12, +5kg)<br>Calf Raise (machine, shared) |
+| **Upper A (Mon)** | Bench Press (barbell, 3x5-8, +2.5kg, compound)<br>Weighted Pull-up (bw, 3x5-8, +2.5kg, compound)<br>Seated/Chest-Supported Row (cable, 3x8-12, +5kg)<br>Cuffed Lateral Raise (cable, 5kg plate, 3x10-20, +5kg)<br>Cuffed Triceps Extension (cable, 5kg plate, 2x8-12, +5kg)<br>Strict Pad Curl (dumbbell, 2x8-12, +2.5kg, 10kg cap) |
+| **Lower A (Tue)** | Hack Squat (machine, 3x6-10, +5kg, compound)<br>Romanian Deadlift (barbell, 3x6-10, +2.5kg, compound)<br>Calf Raise (machine, 3x8-15, +5kg)<br>Decline Crunch (bw, 3x12-20, +2.5kg, 10kg cap, bwFactor 0)<br>Leg Extension (machine, 2x10-15, +5kg, archived by default)<br>Hanging Leg Raise (archived by default) |
+| **Upper B (Thu)** | Smith Overhead Press (machine, 3x6-10, +2.5kg, compound)<br>Weighted Dip (bw, 3x6-10, +2.5kg, compound)<br>Lat Pulldown (cable, 3x8-12, +5kg)<br>Cuffed Lateral Raise (cable, shared)<br>Rear Delt Fly/Face Pull (cable, 2x12-20, +5kg)<br>Hammer Curl (dumbbell, 2x8-12, +2.5kg, 10kg cap)<br>Overhead Triceps Extension (cable, 2x8-12, +5kg) |
+| **Lower B (Fri)** | Deadlift (barbell, 2x5, +2.5kg, compound)<br>Leg Press (machine, 3x8-12, +5kg, compound)<br>Reverse Hamstring Curl (machine, 3x8-12, +5kg)<br>Calf Raise (machine, shared)<br>Cable Crunch (cable, 5kg plate, 3x10-15, +5kg, bwFactor 0) |
 
 ---
 
