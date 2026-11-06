@@ -8,8 +8,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.liftlog.receiver.ProteinReminderScheduler
 import com.liftlog.ui.navigation.LiftLogNavHost
 import com.liftlog.ui.theme.LiftLogTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -33,6 +38,14 @@ class MainActivity : ComponentActivity() {
         }
 
         val appContainer = (application as LiftLogApplication).container
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            appContainer.backupRepository.performAutoMonthlyBackupIfNeeded()
+            val settings = appContainer.settingsRepository.settingsFlow.first()
+            if (settings.proteinReminderEnabled) {
+                ProteinReminderScheduler.schedule(this@MainActivity, settings.proteinReminderHour)
+            }
+        }
 
         setContent {
             LiftLogTheme {

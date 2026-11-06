@@ -210,7 +210,8 @@ fun LiftLogNavHost(
                     factory = ActiveWorkoutViewModel.Factory(
                         workoutId = workoutId,
                         workoutRepository = container.workoutRepository,
-                        settingsRepository = container.settingsRepository
+                        settingsRepository = container.settingsRepository,
+                        exerciseRepository = container.exerciseRepository
                     )
                 )
                 ActiveWorkoutScreen(

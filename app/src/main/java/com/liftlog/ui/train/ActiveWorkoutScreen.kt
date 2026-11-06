@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -59,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.liftlog.data.entity.Exercise
 import com.liftlog.data.repository.UserSettings
 import com.liftlog.service.RestTimerService
 import com.liftlog.ui.theme.DangerRed
@@ -90,6 +92,10 @@ fun ActiveWorkoutScreen(
     var showFinishDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var workoutNote by remember { mutableStateOf("") }
+
+    val availableExercises by viewModel.availableExercises.collectAsState()
+    var exerciseToSwap by remember { mutableStateOf<Exercise?>(null) }
+    var swapSearchQuery by remember { mutableStateOf("") }
 
     // Screen stays on during active workout
     DisposableEffect(Unit) {
@@ -150,7 +156,7 @@ fun ActiveWorkoutScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -232,7 +238,14 @@ fun ActiveWorkoutScreen(
                             onTogglePain = { viewModel.toggleFlagPain(item.exercise.id) },
                             onLogSet = { viewModel.logSet(context, item.exercise.id) },
                             onUpdatePastSet = { updated -> viewModel.updatePastSet(updated) },
-                            onDeletePastSet = { setId -> viewModel.deletePastSet(setId) }
+                            onDeletePastSet = { setId -> viewModel.deletePastSet(setId) },
+                            onSwapExercise = {
+                                swapSearchQuery = ""
+                                exerciseToSwap = item.exercise
+                            },
+                            onSelectWarmupTarget = { weight, reps ->
+                                viewModel.applyWarmupTarget(item.exercise.id, weight, reps)
+                            }
                         )
                     }
 
@@ -329,6 +342,96 @@ fun ActiveWorkoutScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // Swap Exercise Dialog
+    if (exerciseToSwap != null) {
+        val currentEx = exerciseToSwap!!
+        val filtered = availableExercises.filter { ex ->
+            ex.id != currentEx.id &&
+            (ex.name.contains(swapSearchQuery, ignoreCase = true) ||
+             ex.primaryMuscles.contains(swapSearchQuery, ignoreCase = true) ||
+             ex.equipment.contains(swapSearchQuery, ignoreCase = true))
+        }
+
+        AlertDialog(
+            onDismissRequest = { exerciseToSwap = null },
+            title = {
+                Text(
+                    text = "Swap ${currentEx.name}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Select a replacement for this session only. Your workout template remains unchanged.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = swapSearchQuery,
+                        onValueChange = { swapSearchQuery = it },
+                        placeholder = { Text("Search exercises...") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                    ) {
+                        items(filtered) { candidate ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = DarkSurfaceVariant,
+                                border = BorderStroke(1.dp, DarkBorder),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        viewModel.swapExercise(currentEx.id, candidate.id)
+                                        exerciseToSwap = null
+                                    }
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = candidate.name,
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = "${candidate.equipment.uppercase()} • ${candidate.primaryMuscles}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                        if (filtered.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No exercises found", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { exerciseToSwap = null }) {
                     Text("Cancel", color = TextSecondary)
                 }
             }

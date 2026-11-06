@@ -6,14 +6,17 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.liftlog.data.entity.SetEntry
 import com.liftlog.data.repository.ExerciseInWorkout
+import com.liftlog.data.repository.ExerciseRepository
 import com.liftlog.data.repository.SettingsRepository
 import com.liftlog.data.repository.WorkoutRepository
 import com.liftlog.engine.PRResult
 import com.liftlog.service.RestTimerService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ActiveWorkoutUiState(
@@ -39,8 +42,12 @@ data class CurrentSetInput(
 class ActiveWorkoutViewModel(
     val workoutId: Long,
     private val workoutRepository: WorkoutRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val exerciseRepository: ExerciseRepository
 ) : ViewModel() {
+
+    val availableExercises = exerciseRepository.getAllActiveExercises()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _uiState = MutableStateFlow(ActiveWorkoutUiState(workoutId = workoutId))
     val uiState: StateFlow<ActiveWorkoutUiState> = _uiState.asStateFlow()
@@ -278,14 +285,32 @@ class ActiveWorkoutViewModel(
         }
     }
 
+    fun swapExercise(oldExerciseId: Long, newExerciseId: Long) {
+        viewModelScope.launch {
+            workoutRepository.swapExerciseInWorkout(workoutId, oldExerciseId, newExerciseId)
+            loadWorkoutData()
+        }
+    }
+
+    fun applyWarmupTarget(exerciseId: Long, weightKg: Double, reps: Int) {
+        updateInput(exerciseId) {
+            it.copy(
+                weightKg = maxOf(0.0, weightKg),
+                reps = maxOf(1, reps),
+                type = "warmup"
+            )
+        }
+    }
+
     class Factory(
         private val workoutId: Long,
         private val workoutRepository: WorkoutRepository,
-        private val settingsRepository: SettingsRepository
+        private val settingsRepository: SettingsRepository,
+        private val exerciseRepository: ExerciseRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ActiveWorkoutViewModel(workoutId, workoutRepository, settingsRepository) as T
+            return ActiveWorkoutViewModel(workoutId, workoutRepository, settingsRepository, exerciseRepository) as T
         }
     }
 }

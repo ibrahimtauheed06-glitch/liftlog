@@ -36,4 +36,35 @@ object WarmupCalculator {
             )
         }
     }
+
+    /**
+     * Generates a progressive multi-step warm-up ramp for any target working weight.
+     * Can be tapped in-gym to quickly load ramping warmup sets into the input field.
+     */
+    fun generateWarmupRamp(
+        targetWeightKg: Double,
+        incrementKg: Double = 2.5,
+        barWeight: Double = 20.0,
+        isBarbell: Boolean = false
+    ): List<WarmupSetTarget> {
+        if (targetWeightKg <= 0.0) return emptyList()
+
+        return if (isBarbell && targetWeightKg >= 40.0) {
+            val step1Weight = minOf(targetWeightKg * 0.40, barWeight)
+            val step2Weight = E1RMCalculator.roundTo(targetWeightKg * 0.60, incrementKg)
+            val step3Weight = E1RMCalculator.roundTo(targetWeightKg * 0.80, incrementKg)
+            listOf(
+                WarmupSetTarget(weightKg = maxOf(0.0, step1Weight), reps = 10, percentage = ((step1Weight / targetWeightKg) * 100).toInt()),
+                WarmupSetTarget(weightKg = maxOf(0.0, step2Weight), reps = 5, percentage = 60),
+                WarmupSetTarget(weightKg = maxOf(0.0, step3Weight), reps = 2, percentage = 80)
+            )
+        } else {
+            val step1Weight = E1RMCalculator.roundTo(targetWeightKg * 0.50, incrementKg)
+            val step2Weight = E1RMCalculator.roundTo(targetWeightKg * 0.75, incrementKg)
+            listOf(
+                WarmupSetTarget(weightKg = maxOf(0.0, step1Weight), reps = 8, percentage = 50),
+                WarmupSetTarget(weightKg = maxOf(0.0, step2Weight), reps = 4, percentage = 75)
+            )
+        }
+    }
 }

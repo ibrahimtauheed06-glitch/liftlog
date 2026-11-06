@@ -25,14 +25,31 @@ data class UserSettings(
     val barWeight: Double = 20.0,
     val twoSetWarmup: Boolean = false,
     val activeWorkoutId: Long? = null,
+    val activeWorkoutSwaps: String = "",
     val lastDeloadDismissTs: Long = 0L,
     val deloadActiveUntilTs: Long = 0L,
-    val lastExportTs: Long = 0L
+    val lastExportTs: Long = 0L,
+    val lastAutoBackupTs: Long = 0L,
+    val proteinReminderEnabled: Boolean = false,
+    val proteinReminderHour: Int = 20
 ) {
     fun parsePlates(): List<Double> {
         return availablePlates.split(",")
             .mapNotNull { it.trim().toDoubleOrNull() }
             .sortedDescending()
+    }
+
+    fun parseSwaps(): Map<Long, Long> {
+        if (activeWorkoutSwaps.isBlank()) return emptyMap()
+        return activeWorkoutSwaps.split(",")
+            .mapNotNull { entry ->
+                val parts = entry.split(":")
+                if (parts.size == 2) {
+                    val k = parts[0].toLongOrNull()
+                    val v = parts[1].toLongOrNull()
+                    if (k != null && v != null) k to v else null
+                } else null
+            }.toMap()
     }
 }
 
@@ -48,9 +65,13 @@ class SettingsRepository(private val context: Context) {
         val BAR_WEIGHT = doublePreferencesKey("bar_weight")
         val TWO_SET_WARMUP = booleanPreferencesKey("two_set_warmup")
         val ACTIVE_WORKOUT_ID = longPreferencesKey("active_workout_id")
+        val ACTIVE_WORKOUT_SWAPS = stringPreferencesKey("active_workout_swaps")
         val LAST_DELOAD_DISMISS_TS = longPreferencesKey("last_deload_dismiss_ts")
         val DELOAD_ACTIVE_UNTIL_TS = longPreferencesKey("deload_active_until_ts")
         val LAST_EXPORT_TS = longPreferencesKey("last_export_ts")
+        val LAST_AUTO_BACKUP_TS = longPreferencesKey("last_auto_backup_ts")
+        val PROTEIN_REMINDER_ENABLED = booleanPreferencesKey("protein_reminder_enabled")
+        val PROTEIN_REMINDER_HOUR = intPreferencesKey("protein_reminder_hour")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data.map { preferences ->
@@ -65,9 +86,13 @@ class SettingsRepository(private val context: Context) {
             barWeight = preferences[PreferencesKeys.BAR_WEIGHT] ?: 20.0,
             twoSetWarmup = preferences[PreferencesKeys.TWO_SET_WARMUP] ?: false,
             activeWorkoutId = if (activeId != null && activeId > 0) activeId else null,
+            activeWorkoutSwaps = preferences[PreferencesKeys.ACTIVE_WORKOUT_SWAPS] ?: "",
             lastDeloadDismissTs = preferences[PreferencesKeys.LAST_DELOAD_DISMISS_TS] ?: 0L,
             deloadActiveUntilTs = preferences[PreferencesKeys.DELOAD_ACTIVE_UNTIL_TS] ?: 0L,
-            lastExportTs = preferences[PreferencesKeys.LAST_EXPORT_TS] ?: 0L
+            lastExportTs = preferences[PreferencesKeys.LAST_EXPORT_TS] ?: 0L,
+            lastAutoBackupTs = preferences[PreferencesKeys.LAST_AUTO_BACKUP_TS] ?: 0L,
+            proteinReminderEnabled = preferences[PreferencesKeys.PROTEIN_REMINDER_ENABLED] ?: false,
+            proteinReminderHour = preferences[PreferencesKeys.PROTEIN_REMINDER_HOUR] ?: 20
         )
     }
 
@@ -109,8 +134,25 @@ class SettingsRepository(private val context: Context) {
                 it[PreferencesKeys.ACTIVE_WORKOUT_ID] = id
             } else {
                 it.remove(PreferencesKeys.ACTIVE_WORKOUT_ID)
+                it.remove(PreferencesKeys.ACTIVE_WORKOUT_SWAPS)
             }
         }
+    }
+
+    suspend fun updateActiveWorkoutSwaps(swaps: String) {
+        context.dataStore.edit { it[PreferencesKeys.ACTIVE_WORKOUT_SWAPS] = swaps }
+    }
+
+    suspend fun updateLastAutoBackupTs(ts: Long) {
+        context.dataStore.edit { it[PreferencesKeys.LAST_AUTO_BACKUP_TS] = ts }
+    }
+
+    suspend fun updateProteinReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.PROTEIN_REMINDER_ENABLED] = enabled }
+    }
+
+    suspend fun updateProteinReminderHour(hour: Int) {
+        context.dataStore.edit { it[PreferencesKeys.PROTEIN_REMINDER_HOUR] = hour }
     }
 
     suspend fun dismissDeload() {

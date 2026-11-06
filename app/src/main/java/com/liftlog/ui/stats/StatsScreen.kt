@@ -51,6 +51,7 @@ import com.liftlog.ui.theme.TertiaryAmber
 import com.liftlog.ui.theme.TextMuted
 import com.liftlog.ui.theme.TextPrimary
 import com.liftlog.ui.theme.TextSecondary
+import com.liftlog.ui.theme.WarningOrange
 
 @Composable
 fun StatsScreen(
@@ -266,6 +267,101 @@ fun StatsScreen(
 
                             val points = state.exerciseE1rmPoints.map { Pair(it.dateLabel, it.e1rm) }
                             LineTrendChart(points = points, unit = "kg", lineColor = PrimaryBlue)
+
+                            if (state.repMaxEstimates.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "Estimated Rep-Maxes (from Personal Best)",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    state.repMaxEstimates.forEach { est ->
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "${est.reps}RM",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = TextMuted
+                                            )
+                                            val wStr = if (est.weightKg % 1.0 == 0.0) "${est.weightKg.toInt()}" else "${est.weightKg}"
+                                            Text(
+                                                text = "${wStr}kg",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                                color = PrimaryBlue
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Progression Readiness Dashboard (Lowkey in Analytics, no popups)
+                item {
+                    Text(
+                        text = "Progression Readiness (Double Progression)",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "Track your double progression targets without workout popups",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted
+                    )
+                }
+
+                if (state.progressionStatuses.isEmpty()) {
+                    item {
+                        Text("No active exercise progress logged yet.", color = TextMuted)
+                    }
+                } else {
+                    items(state.progressionStatuses) { p ->
+                        val (badgeColor, badgeBg) = when (p.status) {
+                            ProgressionStatusType.READY_TO_ADVANCE -> Pair(SuccessGreen, SuccessGreen.copy(alpha = 0.15f))
+                            ProgressionStatusType.BUILDING_REPS -> Pair(PrimaryBlue, PrimaryBlue.copy(alpha = 0.15f))
+                            ProgressionStatusType.BACKOFF_ADVISED -> Pair(WarningOrange, WarningOrange.copy(alpha = 0.15f))
+                            ProgressionStatusType.STALLED -> Pair(TertiaryAmber, TertiaryAmber.copy(alpha = 0.15f))
+                        }
+
+                        Card(
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = p.exercise.name,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = badgeBg,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor)
+                                    ) {
+                                        Text(
+                                            text = p.statusLabel,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = badgeColor),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = p.detailText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
                         }
                     }
                 }
@@ -393,7 +489,14 @@ fun StatsScreen(
                             )
                             Spacer(modifier = Modifier.height(14.dp))
                             val bwPoints = state.bodyweightTrend.map { Pair(it.dateLabel, it.kg) }
-                            LineTrendChart(points = bwPoints, unit = "kg", lineColor = TertiaryAmber)
+                            val bwSmoothed = state.bodyweightTrend.map { it.smoothedKg }
+                            LineTrendChart(
+                                points = bwPoints,
+                                unit = "kg",
+                                lineColor = PrimaryBlue,
+                                smoothedValues = bwSmoothed,
+                                smoothedColor = TertiaryAmber
+                            )
                         }
                     }
                 }

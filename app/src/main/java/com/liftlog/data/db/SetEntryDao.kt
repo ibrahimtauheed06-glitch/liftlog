@@ -52,4 +52,7 @@ interface SetEntryDao {
 
     @Query("UPDATE set_entries SET exerciseId = :targetExerciseId WHERE exerciseId = :sourceExerciseId")
     suspend fun reassignExerciseSets(sourceExerciseId: Long, targetExerciseId: Long)
+
+    @Query("UPDATE set_entries SET exerciseId = :targetExerciseId WHERE workoutId = :workoutId AND exerciseId = :sourceExerciseId")
+    suspend fun reassignExerciseSetsInWorkout(workoutId: Long, sourceExerciseId: Long, targetExerciseId: Long)
 }

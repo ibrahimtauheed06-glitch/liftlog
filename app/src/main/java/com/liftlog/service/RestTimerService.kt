@@ -42,6 +42,7 @@ class RestTimerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var countdownJob: Job? = null
     private lateinit var notificationManager: NotificationManager
+    private var hasWarned10s = false
 
     companion object {
         const val CHANNEL_ID = "liftlog_rest_timer_channel"
@@ -107,6 +108,7 @@ class RestTimerService : Service() {
                 val seconds = intent.getIntExtra(EXTRA_SECONDS, 90)
                 val exName = intent.getStringExtra(EXTRA_EXERCISE_NAME) ?: "Rest"
                 val endTs = System.currentTimeMillis() + (seconds * 1000L)
+                hasWarned10s = false
                 _timerState.value = RestTimerState(
                     isRunning = true,
                     targetEndTs = endTs,
@@ -123,6 +125,9 @@ class RestTimerService : Service() {
                 if (current.isRunning) {
                     val newEnd = current.targetEndTs + 15_000L
                     val newRemaining = maxOf(0, ((newEnd - System.currentTimeMillis()) / 1000L).toInt())
+                    if (newRemaining > 10) {
+                        hasWarned10s = false
+                    }
                     _timerState.value = current.copy(
                         targetEndTs = newEnd,
                         remainingSec = newRemaining,
@@ -169,11 +174,59 @@ class RestTimerService : Service() {
                     onTimerFinished(current.exerciseName)
                     break
                 } else {
+                    if (remaining in 1..10 && !hasWarned10s && current.totalDurationSec > 15) {
+                        hasWarned10s = true
+                        playWarningPip()
+                    }
                     updateNotification(remaining, current.exerciseName)
                 }
                 delay(1000L)
             }
         }
+    }
+
+    private fun playWarningPip() {
+        try {
+            // Light 60ms vibration cue
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                vibrator?.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE))
+            }
+
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                            .build()
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .build()
+            } else null
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
+                audioManager.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.requestAudioFocus(null, AudioManager.STREAM_NOTIFICATION, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            }
+
+            val toneGen = android.media.ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75)
+            toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, 180)
+
+            serviceScope.launch {
+                delay(500L)
+                toneGen.release()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
+                    audioManager.abandonAudioFocusRequest(focusRequest)
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager.abandonAudioFocus(null)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun onTimerFinished(exerciseName: String) {

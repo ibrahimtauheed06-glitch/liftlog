@@ -186,4 +186,43 @@ class BackupRepository(
         val fourteenDaysMs = 14L * 24 * 60 * 60 * 1000
         return (System.currentTimeMillis() - lastExport) >= fourteenDaysMs
     }
+
+    /**
+     * Performs a local backup once a month, replacing the older backup each time.
+     * Silent, automated, 100% offline.
+     */
+    suspend fun performAutoMonthlyBackupIfNeeded(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val settings = settingsRepository.settingsFlow.first()
+            val now = System.currentTimeMillis()
+            val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000L
+
+            if (settings.lastAutoBackupTs > 0L && (now - settings.lastAutoBackupTs) < thirtyDaysMs) {
+                return@withContext false
+            }
+
+            val payload = createBackupPayload()
+            val jsonString = gson.toJson(payload)
+
+            val backupDir = context.getExternalFilesDir("backups") ?: context.filesDir
+            if (!backupDir.exists()) {
+                backupDir.mkdirs()
+            }
+            val backupFile = java.io.File(backupDir, "liftlog_auto_backup.json")
+            backupFile.writeText(jsonString)
+
+            settingsRepository.updateLastAutoBackupTs(now)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun getAutoBackupInfo(): Pair<Boolean, Long>? {
+        val backupDir = context.getExternalFilesDir("backups") ?: context.filesDir
+        val backupFile = java.io.File(backupDir, "liftlog_auto_backup.json")
+        return if (backupFile.exists()) {
+            Pair(true, backupFile.lastModified())
+        } else null
+    }
 }

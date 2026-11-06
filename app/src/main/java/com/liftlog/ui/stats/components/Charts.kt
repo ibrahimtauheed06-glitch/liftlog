@@ -201,6 +201,8 @@ fun LineTrendChart(
     points: List<Pair<String, Double>>, // label to value
     unit: String = "",
     lineColor: Color = PrimaryBlue,
+    smoothedValues: List<Double?> = emptyList(),
+    smoothedColor: Color = TertiaryAmber,
     modifier: Modifier = Modifier
 ) {
     if (points.isEmpty()) {
@@ -214,8 +216,9 @@ fun LineTrendChart(
         return
     }
 
-    val minVal = (points.minOf { it.second } * 0.95)
-    val maxVal = (points.maxOf { it.second } * 1.05).coerceAtLeast(minVal + 1.0)
+    val allValues = points.map { it.second } + smoothedValues.filterNotNull()
+    val minVal = (allValues.minOrNull() ?: 0.0) * 0.95
+    val maxVal = ((allValues.maxOrNull() ?: 100.0) * 1.05).coerceAtLeast(minVal + 1.0)
     val range = maxVal - minVal
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -241,11 +244,36 @@ fun LineTrendChart(
                     if (i == 0) path.moveTo(offset.x, offset.y) else path.lineTo(offset.x, offset.y)
                 }
 
-                // Draw line
+                // If smoothed values are provided, draw smoothed line
+                if (smoothedValues.size == pointCount) {
+                    val smoothPath = Path()
+                    var hasStarted = false
+                    smoothedValues.forEachIndexed { idx, sVal ->
+                        if (sVal != null) {
+                            val x = idx * stepX
+                            val y = canvasHeight - (((sVal - minVal) / range).toFloat() * canvasHeight)
+                            if (!hasStarted) {
+                                smoothPath.moveTo(x, y)
+                                hasStarted = true
+                            } else {
+                                smoothPath.lineTo(x, y)
+                            }
+                        }
+                    }
+                    if (hasStarted) {
+                        drawPath(
+                            path = smoothPath,
+                            color = smoothedColor,
+                            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+                }
+
+                // Draw main line
                 drawPath(
                     path = path,
-                    color = lineColor,
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                    color = lineColor.copy(alpha = if (smoothedValues.isNotEmpty()) 0.4f else 1.0f),
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                 )
 
                 // Draw dots
@@ -261,6 +289,33 @@ fun LineTrendChart(
                         center = offset
                     )
                 }
+            }
+        }
+
+        if (smoothedValues.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(lineColor)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Daily", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .height(3.dp)
+                        .background(smoothedColor)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("7-Day Avg", style = MaterialTheme.typography.labelSmall, color = TextMuted)
             }
         }
 

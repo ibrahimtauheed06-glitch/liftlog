@@ -2,6 +2,7 @@ package com.liftlog.ui.train.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -16,15 +17,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.liftlog.data.entity.SetEntry
 import com.liftlog.data.repository.ExerciseInWorkout
+import com.liftlog.engine.WarmupCalculator
 import com.liftlog.ui.theme.DangerRed
 import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
@@ -73,6 +78,8 @@ fun ExerciseCard(
     onLogSet: () -> Unit,
     onUpdatePastSet: (SetEntry) -> Unit,
     onDeletePastSet: (Long) -> Unit,
+    onSwapExercise: () -> Unit = {},
+    onSelectWarmupTarget: (Double, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var editingSet by remember { mutableStateOf<SetEntry?>(null) }
@@ -90,20 +97,40 @@ fun ExerciseCard(
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Exercise Header: Name + Badges
+            // Exercise Header: Name + Badges + Swap Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.exercise.name,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.exercise.name,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            ),
+                            modifier = Modifier.weight(1f, fill = false)
                         )
-                    )
+                        if (item.isSwapped) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = TertiaryAmber.copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, TertiaryAmber)
+                            ) {
+                                Text(
+                                    text = "SWAPPED",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = TertiaryAmber
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
                     val bwInfo = if (isBodyweight && item.bodyweightAvg > 0.0) {
                         " • BW: ${String.format(Locale.US, "%.1f", item.bodyweightAvg)}kg"
                     } else ""
@@ -114,20 +141,34 @@ fun ExerciseCard(
                     )
                 }
 
-                if (supersetLabel != null) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = SecondaryTeal.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, SecondaryTeal),
-                        modifier = Modifier.padding(end = 6.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (supersetLabel != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SecondaryTeal.copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, SecondaryTeal),
+                            modifier = Modifier.padding(end = 6.dp)
+                        ) {
+                            Text(
+                                text = supersetLabel,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = SecondaryTeal
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onSwapExercise,
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Text(
-                            text = supersetLabel,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = SecondaryTeal
-                            ),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "Swap exercise for this workout",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -148,6 +189,27 @@ fun ExerciseCard(
                         text = item.exercise.setupNote,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextSecondary,
+                            fontStyle = FontStyle.Italic
+                        )
+                    )
+                }
+            }
+
+            // Previous session note peek (if any)
+            if (!item.lastSessionNote.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Note,
+                        contentDescription = null,
+                        tint = TertiaryAmber,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Last session note: \"${item.lastSessionNote}\"",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = TertiaryAmber,
                             fontStyle = FontStyle.Italic
                         )
                     )
@@ -362,6 +424,51 @@ fun ExerciseCard(
                     workingSetsCount + 1
                 }
                 val isLastPlanned = !isWarmup && (nextSetIndex >= item.plannedSets)
+
+                // Warmup ramp helper when warmup type is selected
+                if (isWarmup && item.target.targetWeightKg > 0.0) {
+                    val ramp = remember(item.target.targetWeightKg, item.exercise.incrementKg, item.exercise.equipment) {
+                        WarmupCalculator.generateWarmupRamp(
+                            targetWeightKg = item.target.targetWeightKg,
+                            incrementKg = item.exercise.incrementKg,
+                            barWeight = 20.0,
+                            isBarbell = item.exercise.equipment.equals("barbell", ignoreCase = true)
+                        )
+                    }
+                    if (ramp.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                text = "Ramp:",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = TertiaryAmber
+                            )
+                            ramp.forEach { step ->
+                                val wStr = if (step.weightKg % 1.0 == 0.0) "${step.weightKg.toInt()}kg" else "${step.weightKg}kg"
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = TertiaryAmber.copy(alpha = 0.15f),
+                                    border = BorderStroke(1.dp, TertiaryAmber.copy(alpha = 0.4f)),
+                                    modifier = Modifier.clickable {
+                                        onSelectWarmupTarget(step.weightKg, step.reps)
+                                    }
+                                ) {
+                                    Text(
+                                        text = "$wStr × ${step.reps}",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = TertiaryAmber,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 CurrentSetInputRow(
                     setIndex = nextSetIndex,

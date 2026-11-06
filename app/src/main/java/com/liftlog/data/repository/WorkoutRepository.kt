@@ -34,6 +34,8 @@ data class ExerciseInWorkout(
     val warmupTargets: List<WarmupSetTarget>,
     val loggedSets: List<SetEntry>,
     val lastSessionSummary: String?, // e.g. "Last: 65x7,7,6 (RPE9)"
+    val lastSessionNote: String? = null,
+    val isSwapped: Boolean = false,
     val hasPainWarning: Boolean = false,
     val bodyweightAvg: Double = 0.0
 )
@@ -220,12 +222,16 @@ class WorkoutRepository(
         }
 
         val settings = settingsRepository.settingsFlow.first()
+        val activeSwaps = settings.parseSwaps()
         val isDeloadActive = settings.deloadActiveUntilTs > System.currentTimeMillis()
         val phase = if (settings.phase.equals("HOME", ignoreCase = true)) WorkoutPhase.HOME else WorkoutPhase.GYM
         val bwAvg = getSevenDayAverageBodyweight()
 
         val allLoggedSets = setEntryDao.getSetsForWorkoutSync(workoutId)
-        val exerciseIdsInWorkout = (slots.map { it.exerciseId } + allLoggedSets.map { it.exerciseId }).distinct()
+        val effectiveSlotExerciseIds = slots.map { slot ->
+            activeSwaps[slot.exerciseId] ?: slot.exerciseId
+        }
+        val exerciseIdsInWorkout = (effectiveSlotExerciseIds + allLoggedSets.map { it.exerciseId }).distinct()
 
         val exercises = exerciseDao.getExercisesByIds(exerciseIdsInWorkout).associateBy { it.id }
         val result = mutableListOf<ExerciseInWorkout>()
@@ -234,7 +240,8 @@ class WorkoutRepository(
 
         for (exerciseId in exerciseIdsInWorkout) {
             val ex = exercises[exerciseId] ?: continue
-            val slot = slots.find { it.exerciseId == exerciseId }
+            val slot = slots.find { it.exerciseId == exerciseId || activeSwaps[it.exerciseId] == exerciseId }
+            val isSwapped = activeSwaps.containsValue(exerciseId) || (slot != null && activeSwaps.containsKey(slot.exerciseId))
             val loggedForEx = allLoggedSets.filter { it.exerciseId == exerciseId }
 
             // Group history into sessions
@@ -306,6 +313,12 @@ class WorkoutRepository(
                 } else null
             } else null
 
+            // Previous session note peek
+            val lastWorkoutId = history.firstOrNull()?.workoutId
+            val lastSetNote = history.firstOrNull { it.workoutId == lastWorkoutId && !it.note.isNullOrBlank() }?.note
+            val lastWorkoutNote = if (lastWorkoutId != null) workoutDao.getWorkoutById(lastWorkoutId)?.note?.takeIf { it.isNotBlank() } else null
+            val lastSessionNote = lastSetNote ?: lastWorkoutNote
+
             // Pain warning: 2+ pain flags on one exercise in 14 days
             val painWarning = com.liftlog.engine.DeloadDetector.hasPainWarning(sessionsData)
 
@@ -318,6 +331,8 @@ class WorkoutRepository(
                     warmupTargets = warmups,
                     loggedSets = loggedForEx,
                     lastSessionSummary = lastSummary,
+                    lastSessionNote = lastSessionNote,
+                    isSwapped = isSwapped,
                     hasPainWarning = painWarning,
                     bodyweightAvg = bwAvg
                 )
@@ -325,5 +340,15 @@ class WorkoutRepository(
         }
 
         return result
+    }
+
+    suspend fun swapExerciseInWorkout(workoutId: Long, oldExerciseId: Long, newExerciseId: Long) {
+        setEntryDao.reassignExerciseSetsInWorkout(workoutId, oldExerciseId, newExerciseId)
+        val settings = settingsRepository.settingsFlow.first()
+        val currentSwaps = settings.parseSwaps().toMutableMap()
+        val originalKey = currentSwaps.entries.find { it.value == oldExerciseId }?.key ?: oldExerciseId
+        currentSwaps[originalKey] = newExerciseId
+        val swapsStr = currentSwaps.entries.joinToString(",") { "${it.key}:${it.value}" }
+        settingsRepository.updateActiveWorkoutSwaps(swapsStr)
     }
 }

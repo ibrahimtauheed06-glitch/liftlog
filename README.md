@@ -160,6 +160,14 @@ Pre-seeded with a 4-day Upper/Lower split (all fields fully editable):
 11. **Direct Keyboard Input**: Set rows feature editable numeric text fields for both weight and reps alongside `+/-` steppers for instant, flexible adjustments.
 12. **Workout Template Editor**: Users can add, reorder, remove exercises, or create entirely new custom templates in More > Workout Templates.
 13. **Streamlined Experience**: Plate calculator, cardio/runs, and HOME/GYM phase mode have been removed in favor of a clean, gym-focused lifting tracker.
+14. **Quick Exercise Swap**: If a machine or equipment is taken in the gym, lifters can tap the swap icon on the exercise card to choose an alternative for that session only; the underlying template is never modified.
+15. **Warmup Ramp Generator**: Multi-step progressive warmups (e.g. Barbell 10 reps, 60% 5 reps, 80% 2 reps) can be generated and selected with a single tap directly above the input fields.
+16. **Previous Session Note Peek**: Displays cues and notes from the last completed session directly on the active exercise card.
+17. **10-Second Rest Warning Tone**: Plays a subtle audio pip with audio ducking and a light vibration cue 10 seconds before the rest timer expires so lifters can prepare without looking at their phone.
+18. **Lowkey Progression Readiness (Analytics Tab Only)**: A dedicated dashboard in Analytics categorizes lifts into Ready to Advance (+load), Building Reps (+1 rep), Back-off Advised, or Stalled, with zero intrusive popups during workouts. Also provides an estimated 1RM, 3RM, 5RM, 8RM, 10RM, 12RM reference table based on all-time bests.
+19. **Smoothed 7-Day Bodyweight Trendline**: Overlays a rolling 7-day average on the bodyweight chart to filter daily water-weight noise.
+20. **Offline Evening Protein Reminder**: Local AlarmManager notification at 8:00 PM if logged protein is below the daily target (customizable/toggleable in Settings).
+21. **Automated Monthly Rolling Local Backup**: Automatically creates/overwrites a silent local JSON backup file (`liftlog_auto_backup.json`) once a month in device storage.
 
 ---
 

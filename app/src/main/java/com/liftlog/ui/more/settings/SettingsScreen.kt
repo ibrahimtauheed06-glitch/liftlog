@@ -14,7 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -36,13 +36,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.liftlog.data.repository.SettingsRepository
 import com.liftlog.data.repository.UserSettings
+import com.liftlog.receiver.ProteinReminderScheduler
 import com.liftlog.ui.theme.DarkBorder
 import com.liftlog.ui.theme.DarkSurface
+import com.liftlog.ui.theme.TextMuted
+import com.liftlog.ui.theme.TextSecondary
 import com.liftlog.ui.theme.TextMuted
 import kotlinx.coroutines.launch
 
@@ -55,9 +59,11 @@ fun SettingsScreen(
 ) {
     val settings by settingsRepository.settingsFlow.collectAsState(initial = UserSettings())
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var proteinTargetText by remember(settings.proteinTarget) { mutableStateOf(settings.proteinTarget.toInt().toString()) }
     var rolloverHourText by remember(settings.dayRolloverHour) { mutableStateOf(settings.dayRolloverHour.toString()) }
+    var reminderHourText by remember(settings.proteinReminderHour) { mutableStateOf(settings.proteinReminderHour.toString()) }
     var weeklySetTargetText by remember(settings.weeklySetTarget) { mutableStateOf(settings.weeklySetTarget.toString()) }
     var sessionsTargetText by remember(settings.sessionsPerWeekTarget) { mutableStateOf(settings.sessionsPerWeekTarget.toString()) }
 
@@ -68,7 +74,7 @@ fun SettingsScreen(
                 title = { Text("App Settings", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = DarkSurface)
@@ -122,6 +128,57 @@ fun SettingsScreen(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth()
                         )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Evening Protein Reminder", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                Text(
+                                    "Offline alert if your daily protein target isn't reached",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextMuted
+                                )
+                            }
+                            Switch(
+                                checked = settings.proteinReminderEnabled,
+                                onCheckedChange = { enabled ->
+                                    coroutineScope.launch {
+                                        settingsRepository.updateProteinReminderEnabled(enabled)
+                                        if (enabled) {
+                                            ProteinReminderScheduler.schedule(context, settings.proteinReminderHour)
+                                        } else {
+                                            ProteinReminderScheduler.cancel(context)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        if (settings.proteinReminderEnabled) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = reminderHourText,
+                                onValueChange = {
+                                    reminderHourText = it
+                                    it.toIntOrNull()?.let { hour ->
+                                        if (hour in 0..23) {
+                                            coroutineScope.launch {
+                                                settingsRepository.updateProteinReminderHour(hour)
+                                                ProteinReminderScheduler.schedule(context, hour)
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text("Reminder Hour (0-23, default 20 = 8 PM)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }

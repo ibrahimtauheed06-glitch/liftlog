@@ -35,6 +35,26 @@ enum class StatsTimeframe {
     MONTHLY
 }
 
+enum class ProgressionStatusType {
+    READY_TO_ADVANCE,
+    BUILDING_REPS,
+    BACKOFF_ADVISED,
+    STALLED
+}
+
+data class ExerciseProgressionStatus(
+    val exercise: Exercise,
+    val status: ProgressionStatusType,
+    val statusLabel: String,
+    val detailText: String
+)
+
+data class RepMaxEstimate(
+    val reps: Int,
+    val percentage: Int,
+    val weightKg: Double
+)
+
 data class ExerciseSessionComparison(
     val exercise: Exercise,
     val latestTopSetText: String, // e.g. "80kg × 7"
@@ -59,7 +79,8 @@ data class DailyProteinBar(
 data class BodyweightPoint(
     val dateLabel: String,
     val kg: Double,
-    val timestamp: Long
+    val timestamp: Long,
+    val smoothedKg: Double? = null
 )
 
 data class E1RMPoint(
@@ -74,6 +95,8 @@ data class StatsUiState(
     val sessionsTarget: Int = 4,
     val muscleVolumes: List<MuscleSetVolume> = emptyList(),
     val exerciseComparisons: List<ExerciseSessionComparison> = emptyList(),
+    val progressionStatuses: List<ExerciseProgressionStatus> = emptyList(),
+    val repMaxEstimates: List<RepMaxEstimate> = emptyList(),
     val proteinBars: List<DailyProteinBar> = emptyList(),
     val proteinTarget: Double = 110.0,
     val proteinAverage: Double = 0.0,
@@ -270,13 +293,21 @@ class StatsViewModel(
         val daysWithProtein = proteinBars.count { it.grams > 0.0 }
         val avgProtein = if (daysWithProtein > 0) sumProtein / daysWithProtein else 0.0
 
-        // 5. Bodyweight trend
+        // 5. Bodyweight trend with 7-day rolling average
         val bwTrend = bwEntries
             .filter { it.ts >= windowStartTs }
             .sortedBy { it.ts }
-            .map {
-                val dateLabel = SimpleDateFormat("MM/dd", Locale.US).format(Date(it.ts))
-                BodyweightPoint(dateLabel = dateLabel, kg = it.kg, timestamp = it.ts)
+            .map { entry ->
+                val dateLabel = SimpleDateFormat("MM/dd", Locale.US).format(Date(entry.ts))
+                val sevenDaysBefore = entry.ts - (7L * 24 * 60 * 60 * 1000)
+                val rolling = bwEntries.filter { it.ts in sevenDaysBefore..entry.ts }
+                val avg = if (rolling.isNotEmpty()) rolling.map { it.kg }.average() else entry.kg
+                BodyweightPoint(
+                    dateLabel = dateLabel,
+                    kg = entry.kg,
+                    timestamp = entry.ts,
+                    smoothedKg = avg
+                )
             }
 
         val activeExList = exercises.values.filter { !it.archived }.sortedBy { it.name }
@@ -314,12 +345,89 @@ class StatsViewModel(
             }
         }
 
+        // 7. Estimated Rep-Max Table based on best historical e1RM
+        val repMaxEstimates = mutableListOf<RepMaxEstimate>()
+        if (points.isNotEmpty()) {
+            val bestE1rm = points.maxOf { it.e1rm }
+            val targetEx = exercises[effectiveSelectedExerciseId]
+            if (targetEx != null && bestE1rm > 0.0) {
+                val inc = if (targetEx.incrementKg > 0.0) targetEx.incrementKg else 2.5
+                repMaxEstimates.addAll(
+                    listOf(
+                        RepMaxEstimate(1, 100, E1RMCalculator.roundTo(bestE1rm * 1.00, inc)),
+                        RepMaxEstimate(3, 93, E1RMCalculator.roundTo(bestE1rm * 0.93, inc)),
+                        RepMaxEstimate(5, 87, E1RMCalculator.roundTo(bestE1rm * 0.87, inc)),
+                        RepMaxEstimate(8, 80, E1RMCalculator.roundTo(bestE1rm * 0.80, inc)),
+                        RepMaxEstimate(10, 75, E1RMCalculator.roundTo(bestE1rm * 0.75, inc)),
+                        RepMaxEstimate(12, 70, E1RMCalculator.roundTo(bestE1rm * 0.70, inc))
+                    )
+                )
+            }
+        }
+
+        // 8. Progression Status Dashboard (Lowkey in Analytics, no popups)
+        val progressionStatuses = mutableListOf<ExerciseProgressionStatus>()
+        for (ex in activeExList) {
+            val exSets = allSets.filter { it.exerciseId == ex.id }
+            val exSessions = exSets.groupBy { it.workoutId }.map { (_, sList) ->
+                SessionData(
+                    timestamp = sList.first().ts,
+                    sets = sList.map { SetData(it.weightKg, it.reps, it.type, it.rpe, it.flagSwung, it.flagPain, it.ts) }
+                )
+            }.sortedByDescending { it.timestamp }
+
+            if (exSessions.isNotEmpty()) {
+                val isStalled = com.liftlog.engine.DeloadDetector.isExerciseStalled(exSessions, ex.bwFactor, bwAvg)
+                val latestWorking = exSessions.first().sets.filter { it.type == "working" }
+                val allHitHi = latestWorking.isNotEmpty() && latestWorking.all { it.reps >= ex.repHi }
+
+                val top1 = exSessions.getOrNull(0)?.let { ProgressionEngine.findTopSet(it.sets, ex.bwFactor, bwAvg) }
+                val top2 = exSessions.getOrNull(1)?.let { ProgressionEngine.findTopSet(it.sets, ex.bwFactor, bwAvg) }
+                val isBackoff = top1 != null && top2 != null && top1.reps < ex.repLo && top2.reps < ex.repLo
+
+                val (status, label, detail) = when {
+                    isStalled -> Triple(
+                        ProgressionStatusType.STALLED,
+                        "Stalled (3 sessions)",
+                        "No progression across last 3 sessions. Deload or variation suggested."
+                    )
+                    isBackoff -> Triple(
+                        ProgressionStatusType.BACKOFF_ADVISED,
+                        "Back-off Advised",
+                        "Failed rep range 2 sessions in a row. -7.5% load recommended."
+                    )
+                    allHitHi -> {
+                        val nextWeight = latestWorking.first().weightKg + ex.incrementKg
+                        val wStr = if (nextWeight % 1.0 == 0.0) "${nextWeight.toInt()}kg" else "${nextWeight}kg"
+                        Triple(
+                            ProgressionStatusType.READY_TO_ADVANCE,
+                            "Ready for +${ex.incrementKg}kg",
+                            "Hit ${latestWorking.size}×${ex.repHi} at ${latestWorking.first().weightKg}kg. Target next: $wStr × ${ex.repLo}"
+                        )
+                    }
+                    else -> {
+                        val minReps = latestWorking.minOfOrNull { it.reps } ?: ex.repLo
+                        val w = latestWorking.firstOrNull()?.weightKg ?: 0.0
+                        val wStr = if (w % 1.0 == 0.0) "${w.toInt()}kg" else "${w}kg"
+                        Triple(
+                            ProgressionStatusType.BUILDING_REPS,
+                            "Building Reps",
+                            "Aiming for +1 rep on lowest set ($wStr × ${minReps + 1})"
+                        )
+                    }
+                }
+                progressionStatuses.add(ExerciseProgressionStatus(ex, status, label, detail))
+            }
+        }
+
         return StatsUiState(
             timeframe = timeframe,
             sessionsDone = sessionsDone,
             sessionsTarget = sessionsTarget,
             muscleVolumes = muscleVolumes,
             exerciseComparisons = comparisons.sortedBy { it.exercise.name },
+            progressionStatuses = progressionStatuses,
+            repMaxEstimates = repMaxEstimates,
             proteinBars = proteinBars,
             proteinTarget = settings.proteinTarget,
             proteinAverage = avgProtein,

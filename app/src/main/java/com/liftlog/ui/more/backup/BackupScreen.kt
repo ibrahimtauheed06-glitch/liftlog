@@ -19,9 +19,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -36,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -128,7 +130,7 @@ fun BackupScreen(
                 title = { Text("Backup & Export", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = DarkSurface)
@@ -166,6 +168,60 @@ fun BackupScreen(
                                 color = TextPrimary
                             )
                         }
+                    }
+                }
+            }
+
+            // Monthly Auto-Backup Status
+            item {
+                val autoBackupInfo = remember { backupRepository.getAutoBackupInfo() }
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Sync, contentDescription = null, tint = SuccessGreen)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Monthly Auto-Backup", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = SuccessGreen.copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen)
+                            ) {
+                                Text(
+                                    text = "ACTIVE",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = SuccessGreen),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Automatically creates a local backup once a month in liftlog_auto_backup.json, overwriting the older backup each time.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val lastSavedText = if (autoBackupInfo != null) {
+                            "Last saved: ${dateFormat.format(Date(autoBackupInfo.second))}"
+                        } else if (settings.lastAutoBackupTs > 0L) {
+                            "Last saved: ${dateFormat.format(Date(settings.lastAutoBackupTs))}"
+                        } else {
+                            "Status: Will save on next launch"
+                        }
+                        Text(
+                            lastSavedText,
+                            style = MaterialTheme.typography.labelSmall.copy(color = TextMuted)
+                        )
                     }
                 }
             }
