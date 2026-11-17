@@ -111,7 +111,12 @@ data class StatsUiState(
     val exerciseE1rmPoints: List<E1RMPoint> = emptyList(),
     val allActiveExercises: List<Exercise> = emptyList(),
     val isLoading: Boolean = true
-)
+) {
+    val readyToAdvanceCount: Int get() = progressionStatuses.count { it.status == ProgressionStatusType.READY_TO_ADVANCE }
+    val buildingRepsCount: Int get() = progressionStatuses.count { it.status == ProgressionStatusType.BUILDING_REPS }
+    val backoffCount: Int get() = progressionStatuses.count { it.status == ProgressionStatusType.BACKOFF_ADVISED }
+    val stalledCount: Int get() = progressionStatuses.count { it.status == ProgressionStatusType.STALLED }
+}
 
 private data class StatsDataBundle(
     val workouts: List<Workout>,
@@ -459,6 +464,18 @@ class StatsViewModel(
                 progressionStatuses.add(ExerciseProgressionStatus(ex, status, label, detail))
             }
         }
+
+        // Sort so increase (READY_TO_ADVANCE) and decrease (BACKOFF_ADVISED) are at the top, followed by BUILDING_REPS, then STALLED
+        progressionStatuses.sortWith(
+            compareBy<ExerciseProgressionStatus> { p ->
+                when (p.status) {
+                    ProgressionStatusType.READY_TO_ADVANCE -> 0
+                    ProgressionStatusType.BACKOFF_ADVISED -> 1
+                    ProgressionStatusType.BUILDING_REPS -> 2
+                    ProgressionStatusType.STALLED -> 3
+                }
+            }.thenBy { it.exercise.name }
+        )
 
         return StatsUiState(
             timeframe = timeframe,

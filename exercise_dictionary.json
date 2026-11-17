@@ -54,7 +54,7 @@
     "primaryMuscles": "Upper Back",
     "secondaryMuscles": "Lats, Biceps",
     "setupNote": "Chest flat on pad, pull with elbows, full stretch forward",
-    "archived": false
+    "archived": true
   },
   {
     "id": 4,
@@ -286,25 +286,6 @@
   },
   {
     "id": 16,
-    "name": "Decline Crunch",
-    "equipment": "bodyweight",
-    "defaultSets": 3,
-    "repLo": 12,
-    "repHi": 20,
-    "restSec": 75,
-    "incrementKg": 2.5,
-    "plateKg": null,
-    "defaultWeightKg": 0.0,
-    "isCompound": false,
-    "bwFactor": 0.0,
-    "homeCapKg": 10.0,
-    "primaryMuscles": "Abs",
-    "secondaryMuscles": "",
-    "setupNote": "Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don't sit up fully. Start bodyweight, then hold a dumbbell at chest.",
-    "archived": false
-  },
-  {
-    "id": 17,
     "name": "Hanging Leg Raise",
     "equipment": "bodyweight",
     "defaultSets": 2,
@@ -323,7 +304,7 @@
     "archived": true
   },
   {
-    "id": 18,
+    "id": 17,
     "name": "Leg Extension",
     "equipment": "machine",
     "defaultSets": 2,
@@ -342,7 +323,7 @@
     "archived": true
   },
   {
-    "id": 19,
+    "id": 18,
     "name": "Deadlift",
     "equipment": "barbell",
     "defaultSets": 2,
@@ -361,7 +342,7 @@
     "archived": false
   },
   {
-    "id": 20,
+    "id": 19,
     "name": "Leg Press",
     "equipment": "machine",
     "defaultSets": 3,
@@ -380,7 +361,7 @@
     "archived": false
   },
   {
-    "id": 21,
+    "id": 20,
     "name": "Reverse Hamstring Curl",
     "equipment": "machine",
     "defaultSets": 3,
@@ -399,7 +380,7 @@
     "archived": false
   },
   {
-    "id": 22,
+    "id": 21,
     "name": "Cable Crunch",
     "equipment": "cable",
     "defaultSets": 3,
@@ -415,6 +396,82 @@
     "primaryMuscles": "Abs",
     "secondaryMuscles": "",
     "setupNote": "Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don't sit back on heels.",
+    "archived": false
+  },
+  {
+    "id": 22,
+    "name": "Decline Crunch",
+    "equipment": "bodyweight",
+    "defaultSets": 3,
+    "repLo": 12,
+    "repHi": 20,
+    "restSec": 75,
+    "incrementKg": 2.5,
+    "plateKg": null,
+    "defaultWeightKg": 0.0,
+    "isCompound": false,
+    "bwFactor": 0.0,
+    "homeCapKg": 10.0,
+    "primaryMuscles": "Abs",
+    "secondaryMuscles": "",
+    "setupNote": "Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don't sit up fully. Start bodyweight, then hold a dumbbell at chest.",
+    "archived": false
+  },
+  {
+    "id": 23,
+    "name": "Lat pullover",
+    "equipment": "machine",
+    "defaultSets": 3,
+    "repLo": 5,
+    "repHi": 8,
+    "restSec": 150,
+    "incrementKg": 2.5,
+    "plateKg": null,
+    "defaultWeightKg": 0.0,
+    "isCompound": false,
+    "bwFactor": 0.0,
+    "homeCapKg": null,
+    "primaryMuscles": "Lats",
+    "secondaryMuscles": "",
+    "setupNote": null,
+    "archived": false
+  },
+  {
+    "id": 24,
+    "name": "rows infront of mirror near abs",
+    "equipment": "barbell",
+    "defaultSets": 3,
+    "repLo": 5,
+    "repHi": 8,
+    "restSec": 150,
+    "incrementKg": 2.5,
+    "plateKg": null,
+    "defaultWeightKg": 0.0,
+    "isCompound": false,
+    "bwFactor": 0.0,
+    "homeCapKg": null,
+    "primaryMuscles": "",
+    "secondaryMuscles": "",
+    "setupNote": null,
+    "archived": false
+  },
+  {
+    "id": 25,
+    "name": "db lateral raises",
+    "equipment": "barbell",
+    "defaultSets": 3,
+    "repLo": 10,
+    "repHi": 20,
+    "restSec": 150,
+    "incrementKg": 2.5,
+    "plateKg": null,
+    "defaultWeightKg": 0.0,
+    "isCompound": false,
+    "bwFactor": 0.0,
+    "homeCapKg": null,
+    "primaryMuscles": "",
+    "secondaryMuscles": "",
+    "setupNote": null,
     "archived": false
   }
 ]
