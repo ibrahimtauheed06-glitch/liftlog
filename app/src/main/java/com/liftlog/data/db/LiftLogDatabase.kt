@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
         BodyweightEntry::class,
         RunEntry::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class LiftLogDatabase : RoomDatabase() {
@@ -255,6 +255,147 @@ abstract class LiftLogDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // A. EXISTING SEEDED EXERCISES
+                // 1. Seated/Chest-Supported Row: restSec 75 -> 90
+                db.execSQL("UPDATE exercises SET restSec = 90 WHERE LOWER(name) = 'seated/chest-supported row'")
+
+                // 2. Lat Pulldown: restSec 75 -> 90
+                db.execSQL("UPDATE exercises SET restSec = 90 WHERE LOWER(name) = 'lat pulldown'")
+
+                // 3. Cuffed Lateral Raise: repLo 10 -> 8, repHi 20 -> 15 (sets, rest, increment and plateKg unchanged)
+                db.execSQL("UPDATE exercises SET repLo = 8, repHi = 15 WHERE LOWER(name) = 'cuffed lateral raise'")
+
+                // 4. Deadlift: repHi 5 -> 8 (repLo stays 5; sets, rest and increment unchanged)
+                db.execSQL("UPDATE exercises SET repHi = 8 WHERE LOWER(name) = 'deadlift'")
+
+                // B. USER-ADDED EXERCISES (rename + fix)
+                // 5. "db lateral raises" -> rename "Dumbbell Lateral Raise"
+                val cursorDbLat = db.query(
+                    "SELECT id FROM exercises WHERE LOWER(name) IN ('db lateral raises', 'db lateral raise', 'dumbbell lateral raise') LIMIT 1"
+                )
+                if (cursorDbLat.moveToFirst()) {
+                    val id = cursorDbLat.getLong(0)
+                    cursorDbLat.close()
+                    db.execSQL(
+                        """
+                        UPDATE exercises SET
+                            name = 'Dumbbell Lateral Raise',
+                            equipment = 'dumbbell',
+                            defaultSets = 3,
+                            repLo = 8,
+                            repHi = 15,
+                            restSec = 75,
+                            incrementKg = 2.5,
+                            homeCapKg = 10.0,
+                            isCompound = 0,
+                            bwFactor = 0.0,
+                            primaryMuscles = 'Side Delts',
+                            secondaryMuscles = '',
+                            setupNote = 'Slight forward lean, raise in the scapular plane to just above shoulder height, slow lowering, no swinging. Use when the cable station is busy.'
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf(id)
+                    )
+                } else {
+                    cursorDbLat.close()
+                    db.execSQL(
+                        """
+                        INSERT INTO exercises (
+                            name, equipment, incrementKg, plateKg, repLo, repHi, defaultSets, defaultWeightKg,
+                            restSec, isCompound, bwFactor, primaryMuscles, secondaryMuscles, setupNote, homeCapKg, variantOf, archived
+                        ) VALUES (
+                            'Dumbbell Lateral Raise', 'dumbbell', 2.5, NULL, 8, 15, 3, 0.0,
+                            75, 0, 0.0, 'Side Delts', '', 'Slight forward lean, raise in the scapular plane to just above shoulder height, slow lowering, no swinging. Use when the cable station is busy.', 10.0, NULL, 0
+                        )
+                        """.trimIndent()
+                    )
+                }
+
+                // 6. "rows infront of mirror near abs" -> rename "Unilateral Chest-Supported Row"
+                val cursorRows = db.query(
+                    "SELECT id FROM exercises WHERE LOWER(name) IN ('rows infront of mirror near abs', 'unilateral chest-supported row') LIMIT 1"
+                )
+                if (cursorRows.moveToFirst()) {
+                    val id = cursorRows.getLong(0)
+                    cursorRows.close()
+                    db.execSQL(
+                        """
+                        UPDATE exercises SET
+                            name = 'Unilateral Chest-Supported Row',
+                            equipment = 'machine',
+                            defaultSets = 3,
+                            repLo = 8,
+                            repHi = 12,
+                            restSec = 90,
+                            incrementKg = 2.5,
+                            isCompound = 0,
+                            bwFactor = 0.0,
+                            primaryMuscles = 'Upper Back',
+                            secondaryMuscles = 'Lats, Biceps',
+                            setupNote = 'Chest on pad, one arm at a time, elbow slightly flared, full stretch forward. Weight is per arm; log one set per pair of arms using the weaker arm''s reps.'
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf(id)
+                    )
+                } else {
+                    cursorRows.close()
+                    db.execSQL(
+                        """
+                        INSERT INTO exercises (
+                            name, equipment, incrementKg, plateKg, repLo, repHi, defaultSets, defaultWeightKg,
+                            restSec, isCompound, bwFactor, primaryMuscles, secondaryMuscles, setupNote, homeCapKg, variantOf, archived
+                        ) VALUES (
+                            'Unilateral Chest-Supported Row', 'machine', 2.5, NULL, 8, 12, 3, 0.0,
+                            90, 0, 0.0, 'Upper Back', 'Lats, Biceps', 'Chest on pad, one arm at a time, elbow slightly flared, full stretch forward. Weight is per arm; log one set per pair of arms using the weaker arm''s reps.', NULL, NULL, 0
+                        )
+                        """.trimIndent()
+                    )
+                }
+
+                // 7. "Lat pullover" -> rename "Lat Pullover"
+                val cursorPullover = db.query(
+                    "SELECT id FROM exercises WHERE LOWER(name) IN ('lat pullover') LIMIT 1"
+                )
+                if (cursorPullover.moveToFirst()) {
+                    val id = cursorPullover.getLong(0)
+                    cursorPullover.close()
+                    db.execSQL(
+                        """
+                        UPDATE exercises SET
+                            name = 'Lat Pullover',
+                            equipment = 'machine',
+                            defaultSets = 3,
+                            repLo = 8,
+                            repHi = 12,
+                            restSec = 90,
+                            incrementKg = 2.5,
+                            isCompound = 0,
+                            bwFactor = 0.0,
+                            primaryMuscles = 'Lats',
+                            setupNote = 'Slight elbow bend, pull in an arc down toward the hips, full stretch at the top without shrugging, controlled lowering.'
+                        WHERE id = ?
+                        """.trimIndent(),
+                        arrayOf(id)
+                    )
+                } else {
+                    cursorPullover.close()
+                    db.execSQL(
+                        """
+                        INSERT INTO exercises (
+                            name, equipment, incrementKg, plateKg, repLo, repHi, defaultSets, defaultWeightKg,
+                            restSec, isCompound, bwFactor, primaryMuscles, secondaryMuscles, setupNote, homeCapKg, variantOf, archived
+                        ) VALUES (
+                            'Lat Pullover', 'machine', 2.5, NULL, 8, 12, 3, 0.0,
+                            90, 0, 0.0, 'Lats', '', 'Slight elbow bend, pull in an arc down toward the hips, full stretch at the top without shrugging, controlled lowering.', NULL, NULL, 0
+                        )
+                        """.trimIndent()
+                    )
+                }
+            }
+        }
+
         fun getInstance(context: Context): LiftLogDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -262,7 +403,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                     LiftLogDatabase::class.java,
                     "liftlog.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
@@ -318,7 +459,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 repLo = 8,
                 repHi = 12,
                 defaultSets = 3,
-                restSec = 75,
+                restSec = 90,
                 isCompound = false,
                 bwFactor = 0.0,
                 primaryMuscles = "Upper Back",
@@ -330,8 +471,8 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 equipment = "cable",
                 plateKg = 5.0,
                 incrementKg = 5.0,
-                repLo = 10,
-                repHi = 20,
+                repLo = 8,
+                repHi = 15,
                 defaultSets = 3,
                 restSec = 75,
                 isCompound = false,
@@ -407,7 +548,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 repLo = 8,
                 repHi = 12,
                 defaultSets = 3,
-                restSec = 75,
+                restSec = 90,
                 isCompound = false,
                 bwFactor = 0.0,
                 primaryMuscles = "Lats",
@@ -553,7 +694,7 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 equipment = "barbell",
                 incrementKg = 2.5,
                 repLo = 5,
-                repHi = 5,
+                repHi = 8,
                 defaultSets = 2,
                 restSec = 180,
                 isCompound = true,
@@ -604,6 +745,51 @@ abstract class LiftLogDatabase : RoomDatabase() {
                 primaryMuscles = "Abs",
                 secondaryMuscles = "",
                 setupNote = "Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don't sit back on heels."
+            ),
+
+            // Additional Dictionary Exercises
+            Exercise(
+                name = "Dumbbell Lateral Raise",
+                equipment = "dumbbell",
+                incrementKg = 2.5,
+                homeCapKg = 10.0,
+                repLo = 8,
+                repHi = 15,
+                defaultSets = 3,
+                restSec = 75,
+                isCompound = false,
+                bwFactor = 0.0,
+                primaryMuscles = "Side Delts",
+                secondaryMuscles = "",
+                setupNote = "Slight forward lean, raise in the scapular plane to just above shoulder height, slow lowering, no swinging. Use when the cable station is busy."
+            ),
+            Exercise(
+                name = "Unilateral Chest-Supported Row",
+                equipment = "machine",
+                incrementKg = 2.5,
+                repLo = 8,
+                repHi = 12,
+                defaultSets = 3,
+                restSec = 90,
+                isCompound = false,
+                bwFactor = 0.0,
+                primaryMuscles = "Upper Back",
+                secondaryMuscles = "Lats, Biceps",
+                setupNote = "Chest on pad, one arm at a time, elbow slightly flared, full stretch forward. Weight is per arm; log one set per pair of arms using the weaker arm's reps."
+            ),
+            Exercise(
+                name = "Lat Pullover",
+                equipment = "machine",
+                incrementKg = 2.5,
+                repLo = 8,
+                repHi = 12,
+                defaultSets = 3,
+                restSec = 90,
+                isCompound = false,
+                bwFactor = 0.0,
+                primaryMuscles = "Lats",
+                secondaryMuscles = "",
+                setupNote = "Slight elbow bend, pull in an arc down toward the hips, full stretch at the top without shrugging, controlled lowering."
             )
         )
 
