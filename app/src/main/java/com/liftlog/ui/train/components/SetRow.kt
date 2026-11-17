@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -143,8 +145,9 @@ fun LoggedSetItem(
 
             if (set.rpe != null) {
                 Spacer(modifier = Modifier.width(8.dp))
+                val rpeDisplay = if (set.rpe % 1.0 == 0.0) set.rpe.toInt().toString() else set.rpe.toString()
                 Text(
-                    text = "@${set.rpe}",
+                    text = "@$rpeDisplay",
                     style = MaterialTheme.typography.bodySmall.copy(color = TertiaryAmber, fontWeight = FontWeight.Bold)
                 )
             }
@@ -374,7 +377,7 @@ fun CurrentSetInputRow(
                     var rpeText by remember(input.rpe) {
                         mutableStateOf(if (input.rpe % 1.0 == 0.0) input.rpe.toInt().toString() else input.rpe.toString())
                     }
-                    OutlinedTextField(
+                    BasicTextField(
                         value = rpeText,
                         onValueChange = { newVal ->
                             rpeText = newVal
@@ -385,18 +388,23 @@ fun CurrentSetInputRow(
                         textStyle = TextStyle(
                             color = TertiaryAmber,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            fontSize = 15.sp,
                             textAlign = TextAlign.Center
                         ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = TertiaryAmber,
-                            unfocusedBorderColor = DarkBorder,
-                            focusedContainerColor = DarkSurface,
-                            unfocusedContainerColor = DarkSurface
-                        ),
-                        modifier = Modifier
-                            .width(64.dp)
-                            .height(40.dp)
+                        cursorBrush = SolidColor(TertiaryAmber),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier
+                                    .width(68.dp)
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(DarkSurface)
+                                    .border(1.dp, TertiaryAmber, RoundedCornerShape(6.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                innerTextField()
+                            }
+                        }
                     )
                 }
 

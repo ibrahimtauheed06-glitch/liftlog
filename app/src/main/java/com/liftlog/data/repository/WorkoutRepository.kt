@@ -204,7 +204,7 @@ class WorkoutRepository(
         // Look up variants as well if any
         val variants = exerciseDao.getVariants(exerciseId).map { it.id }
         val allIds = listOf(exerciseId) + variants
-        return setEntryDao.getSetsForExercisesSync(allIds)
+        return setEntryDao.getCompletedSetsForExercisesSync(allIds)
     }
 
     suspend fun getSevenDayAverageBodyweight(): Double {
@@ -308,7 +308,10 @@ class WorkoutRepository(
                     }
                     val repsStr = workingSets.joinToString(",") { it.reps.toString() }
                     val maxRpe = workingSets.mapNotNull { it.rpe }.maxOrNull()
-                    val rpeStr = if (maxRpe != null) " (RPE$maxRpe)" else ""
+                    val rpeStr = if (maxRpe != null) {
+                        val rpeDisplay = if (maxRpe % 1.0 == 0.0) maxRpe.toInt().toString() else maxRpe.toString()
+                        " (RPE$rpeDisplay)"
+                    } else ""
                     "Last: ${weightStr}x$repsStr$rpeStr"
                 } else null
             } else null

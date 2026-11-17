@@ -16,9 +16,11 @@ import com.liftlog.data.repository.BodyweightRepository
 import com.liftlog.data.repository.SettingsRepository
 import com.liftlog.data.repository.UserSettings
 import com.liftlog.engine.E1RMCalculator
+import com.liftlog.engine.ExerciseConfig
 import com.liftlog.engine.ProgressionEngine
 import com.liftlog.engine.SessionData
 import com.liftlog.engine.SetData
+import com.liftlog.engine.WorkoutPhase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,6 +95,7 @@ data class StatsUiState(
     val timeframe: StatsTimeframe = StatsTimeframe.WEEKLY,
     val sessionsDone: Int = 0,
     val sessionsTarget: Int = 4,
+    val averageWorkoutDurationText: String = "—",
     val muscleVolumes: List<MuscleSetVolume> = emptyList(),
     val exerciseComparisons: List<ExerciseSessionComparison> = emptyList(),
     val progressionStatuses: List<ExerciseProgressionStatus> = emptyList(),
@@ -142,7 +145,7 @@ class StatsViewModel(
         viewModelScope.launch {
             val baseFlow = combine(
                 workoutDao.getCompletedWorkoutsFlow(),
-                setEntryDao.getAllSetsFlow(),
+                setEntryDao.getCompletedSetsFlow(),
                 proteinDao.getAllEntries(),
                 bodyweightRepository.getAllEntries(),
                 settingsRepository.settingsFlow
@@ -192,7 +195,7 @@ class StatsViewModel(
         val proteinEntries = bundle.proteinEntries
         val bwEntries = bundle.bwEntries
 
-        // 1. Sessions done in window
+        // 1. Sessions done in window & Average Workout Time
         val completedInWindow = workouts.filter { workout ->
             workout.startTs in windowStartTs..now &&
                     workout.endTs != null &&
@@ -200,6 +203,27 @@ class StatsViewModel(
         }
         val sessionsDone = completedInWindow.size
         val sessionsTarget = if (isWeekly) settings.sessionsPerWeekTarget else settings.sessionsPerWeekTarget * 4
+
+        val windowDurations = completedInWindow.mapNotNull { w ->
+            val end = w.endTs
+            if (end != null && end > w.startTs) end - w.startTs else null
+        }
+        val allValidDurations = workouts.mapNotNull { w ->
+            val end = w.endTs
+            if (end != null && !w.isDiscarded && end > w.startTs) end - w.startTs else null
+        }
+        val durationsToUse = if (windowDurations.isNotEmpty()) windowDurations else allValidDurations
+        val avgDurationMs = if (durationsToUse.isNotEmpty()) durationsToUse.average() else 0.0
+        val avgDurationMinutes = Math.round(avgDurationMs / (1000.0 * 60.0)).toInt()
+        val averageWorkoutDurationText = when {
+            durationsToUse.isEmpty() -> "—"
+            avgDurationMinutes < 60 -> "${avgDurationMinutes}m"
+            else -> {
+                val h = avgDurationMinutes / 60
+                val m = avgDurationMinutes % 60
+                if (m > 0) "${h}h ${m}m" else "${h}h"
+            }
+        }
 
         // 2. Hard sets per muscle (working sets only, secondary = 0.5, pain excluded, swung counts)
         val setsInWindow = allSets.filter { it.ts in windowStartTs..now }
@@ -365,7 +389,7 @@ class StatsViewModel(
             }
         }
 
-        // 8. Progression Status Dashboard (Lowkey in Analytics, no popups)
+        // 8. Progression Status Dashboard (Lowkey in Analytics, matching ProgressionEngine exactly)
         val progressionStatuses = mutableListOf<ExerciseProgressionStatus>()
         for (ex in activeExList) {
             val exSets = allSets.filter { it.exerciseId == ex.id }
@@ -378,43 +402,59 @@ class StatsViewModel(
 
             if (exSessions.isNotEmpty()) {
                 val isStalled = com.liftlog.engine.DeloadDetector.isExerciseStalled(exSessions, ex.bwFactor, bwAvg)
-                val latestWorking = exSessions.first().sets.filter { it.type == "working" }
-                val allHitHi = latestWorking.isNotEmpty() && latestWorking.all { it.reps >= ex.repHi }
+                val config = ExerciseConfig(
+                    id = ex.id,
+                    name = ex.name,
+                    equipment = ex.equipment,
+                    incrementKg = ex.incrementKg,
+                    plateKg = ex.plateKg,
+                    repLo = ex.repLo,
+                    repHi = ex.repHi,
+                    defaultSets = ex.defaultSets,
+                    restSec = ex.restSec,
+                    isCompound = ex.isCompound,
+                    bwFactor = ex.bwFactor,
+                    homeCapKg = ex.homeCapKg
+                )
+                val isDeloadActive = settings.deloadActiveUntilTs > now
+                val phase = if (settings.phase.equals("HOME", ignoreCase = true)) WorkoutPhase.HOME else WorkoutPhase.GYM
 
-                val top1 = exSessions.getOrNull(0)?.let { ProgressionEngine.findTopSet(it.sets, ex.bwFactor, bwAvg) }
-                val top2 = exSessions.getOrNull(1)?.let { ProgressionEngine.findTopSet(it.sets, ex.bwFactor, bwAvg) }
-                val isBackoff = top1 != null && top2 != null && top1.reps < ex.repLo && top2.reps < ex.repLo
+                val target = ProgressionEngine.computeNextTarget(
+                    exercise = config,
+                    sessions = exSessions,
+                    currentPhase = phase,
+                    isDeloadActive = isDeloadActive,
+                    bodyweight7DayAvg = bwAvg
+                )
+
+                val weightStr = if (target.targetWeightKg % 1.0 == 0.0) "${target.targetWeightKg.toInt()}kg" else "${target.targetWeightKg}kg"
+                val displayWeight = if (ex.bwFactor > 0.0) {
+                    if (target.targetWeightKg > 0.0) "BW + $weightStr" else "Bodyweight"
+                } else {
+                    weightStr
+                }
 
                 val (status, label, detail) = when {
                     isStalled -> Triple(
                         ProgressionStatusType.STALLED,
                         "Stalled (3 sessions)",
-                        "No progression across last 3 sessions. Deload or variation suggested."
+                        "No progression across last 3 sessions. Deload or variation suggested. Target next: $displayWeight × ${target.targetReps}"
                     )
-                    isBackoff -> Triple(
+                    target.isBackOff -> Triple(
                         ProgressionStatusType.BACKOFF_ADVISED,
-                        "Back-off Advised",
-                        "Failed rep range 2 sessions in a row. -7.5% load recommended."
+                        "Back-off Advised (-7.5%)",
+                        "${target.reason}. Target next: $displayWeight × ${target.targetReps}"
                     )
-                    allHitHi -> {
-                        val nextWeight = latestWorking.first().weightKg + ex.incrementKg
-                        val wStr = if (nextWeight % 1.0 == 0.0) "${nextWeight.toInt()}kg" else "${nextWeight}kg"
-                        Triple(
-                            ProgressionStatusType.READY_TO_ADVANCE,
-                            "Ready for +${ex.incrementKg}kg",
-                            "Hit ${latestWorking.size}×${ex.repHi} at ${latestWorking.first().weightKg}kg. Target next: $wStr × ${ex.repLo}"
-                        )
-                    }
-                    else -> {
-                        val minReps = latestWorking.minOfOrNull { it.reps } ?: ex.repLo
-                        val w = latestWorking.firstOrNull()?.weightKg ?: 0.0
-                        val wStr = if (w % 1.0 == 0.0) "${w.toInt()}kg" else "${w}kg"
-                        Triple(
-                            ProgressionStatusType.BUILDING_REPS,
-                            "Building Reps",
-                            "Aiming for +1 rep on lowest set ($wStr × ${minReps + 1})"
-                        )
-                    }
+                    target.reason.contains("progressing weight", ignoreCase = true) || target.reason.contains("All sets hit repHi", ignoreCase = true) -> Triple(
+                        ProgressionStatusType.READY_TO_ADVANCE,
+                        "Ready for +${ex.incrementKg}kg",
+                        "${target.reason}. Target next: $displayWeight × ${target.targetReps}"
+                    )
+                    else -> Triple(
+                        ProgressionStatusType.BUILDING_REPS,
+                        "Building Reps",
+                        "${target.reason}. Target next: $displayWeight × ${target.targetReps}"
+                    )
                 }
                 progressionStatuses.add(ExerciseProgressionStatus(ex, status, label, detail))
             }
@@ -424,6 +464,7 @@ class StatsViewModel(
             timeframe = timeframe,
             sessionsDone = sessionsDone,
             sessionsTarget = sessionsTarget,
+            averageWorkoutDurationText = averageWorkoutDurationText,
             muscleVolumes = muscleVolumes,
             exerciseComparisons = comparisons.sortedBy { it.exercise.name },
             progressionStatuses = progressionStatuses,

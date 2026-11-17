@@ -62,7 +62,13 @@ class RestTimerService : Service() {
         private val _timerState = MutableStateFlow(RestTimerState())
         val timerState: StateFlow<RestTimerState> = _timerState.asStateFlow()
 
+        fun clearAlertNotification(context: Context) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(ALERT_NOTIFICATION_ID)
+        }
+
         fun startTimer(context: Context, seconds: Int, exerciseName: String) {
+            clearAlertNotification(context)
             val intent = Intent(context, RestTimerService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_SECONDS, seconds)
@@ -91,6 +97,7 @@ class RestTimerService : Service() {
         }
 
         fun stopTimer(context: Context) {
+            clearAlertNotification(context)
             val intent = Intent(context, RestTimerService::class.java).apply { action = ACTION_STOP }
             context.startService(intent)
         }
@@ -321,6 +328,7 @@ class RestTimerService : Service() {
         countdownJob?.cancel()
         _timerState.value = RestTimerState()
         notificationManager.cancel(NOTIFICATION_ID)
+        notificationManager.cancel(ALERT_NOTIFICATION_ID)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

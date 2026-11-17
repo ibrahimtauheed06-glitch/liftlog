@@ -26,11 +26,27 @@ interface SetEntryDao {
     @Query("SELECT * FROM set_entries WHERE exerciseId IN (:exerciseIds) ORDER BY ts DESC")
     suspend fun getSetsForExercisesSync(exerciseIds: List<Long>): List<SetEntry>
 
+    @Query("""
+        SELECT s.* FROM set_entries s
+        INNER JOIN workouts w ON s.workoutId = w.id
+        WHERE s.exerciseId IN (:exerciseIds) AND w.isDiscarded = 0 AND w.endTs IS NOT NULL
+        ORDER BY s.ts DESC
+    """)
+    suspend fun getCompletedSetsForExercisesSync(exerciseIds: List<Long>): List<SetEntry>
+
     @Query("SELECT * FROM set_entries WHERE ts >= :startTs AND ts <= :endTs")
     suspend fun getSetsBetween(startTs: Long, endTs: Long): List<SetEntry>
 
     @Query("SELECT * FROM set_entries ORDER BY ts DESC")
     fun getAllSetsFlow(): Flow<List<SetEntry>>
+
+    @Query("""
+        SELECT s.* FROM set_entries s
+        INNER JOIN workouts w ON s.workoutId = w.id
+        WHERE w.isDiscarded = 0 AND w.endTs IS NOT NULL
+        ORDER BY s.ts DESC
+    """)
+    fun getCompletedSetsFlow(): Flow<List<SetEntry>>
 
     @Query("SELECT * FROM set_entries ORDER BY ts DESC")
     suspend fun getAllSetsSync(): List<SetEntry>

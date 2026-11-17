@@ -111,6 +111,7 @@ class ActiveWorkoutViewModel(
     fun discardWorkout(context: Context, onDiscarded: () -> Unit) {
         viewModelScope.launch {
             RestTimerService.stopTimer(context)
+            RestTimerService.clearAlertNotification(context)
             workoutRepository.discardWorkout(workoutId)
             onDiscarded()
         }
@@ -156,6 +157,7 @@ class ActiveWorkoutViewModel(
     }
 
     fun logSet(context: Context, exerciseId: Long) {
+        RestTimerService.clearAlertNotification(context)
         val input = _uiState.value.prefilledInputs[exerciseId] ?: return
         val exItem = _uiState.value.exercises.find { it.exercise.id == exerciseId } ?: return
 
@@ -203,6 +205,8 @@ class ActiveWorkoutViewModel(
                 val nextType = if (loggedWarmupCount < warmupCount) "warmup" else "working"
                 val nextWeight = if (loggedWarmupCount < warmupCount) {
                     updatedItem.warmupTargets[loggedWarmupCount].weightKg
+                } else if (input.type == "working") {
+                    input.weightKg
                 } else {
                     updatedItem.target.targetWeightKg
                 }
@@ -271,7 +275,10 @@ class ActiveWorkoutViewModel(
 
     fun finishWorkout(context: Context? = null, note: String?, onFinished: () -> Unit) {
         viewModelScope.launch {
-            context?.let { RestTimerService.stopTimer(it) }
+            context?.let {
+                RestTimerService.stopTimer(it)
+                RestTimerService.clearAlertNotification(it)
+            }
             workoutRepository.finishWorkout(workoutId, note)
             onFinished()
         }
@@ -279,7 +286,10 @@ class ActiveWorkoutViewModel(
 
     fun cancelWorkout(context: Context? = null, onCancelled: () -> Unit) {
         viewModelScope.launch {
-            context?.let { RestTimerService.stopTimer(it) }
+            context?.let {
+                RestTimerService.stopTimer(it)
+                RestTimerService.clearAlertNotification(it)
+            }
             workoutRepository.cancelActiveWorkout(workoutId)
             onCancelled()
         }

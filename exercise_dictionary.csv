@@ -1,0 +1,23 @@
+id,name,equipment,defaultSets,repLo,repHi,restSec,incrementKg,plateKg,defaultWeightKg,isCompound,bwFactor,homeCapKg,primaryMuscles,secondaryMuscles,setupNote,archived
+1,Bench Press,barbell,3,5,8,150,2.5,,0.0,true,0.0,,Chest,"Triceps, Front Delts","Retract scapulae, slight arch, eyes directly under the bar",false
+2,Weighted Pull-up,bodyweight,3,5,8,150,2.5,,0.0,true,1.0,,Lats,"Biceps, Upper Back","Attach weight belt firmly around hips, pull chest to bar",false
+3,Seated/Chest-Supported Row,cable,3,8,12,75,5.0,,0.0,false,0.0,,Upper Back,"Lats, Biceps","Chest flat on pad, pull with elbows, full stretch forward",false
+4,Cuffed Lateral Raise,cable,3,10,20,75,5.0,5.0,0.0,false,0.0,,Side Delts,,"Cuff at wrist height, lean slightly forward, raise out in scapular plane",false
+5,Cuffed Triceps Extension,cable,2,8,12,75,5.0,5.0,0.0,false,0.0,,Triceps,,"Cuff at wrist, keep upper arm locked in line with cable",false
+6,Strict Pad Curl,dumbbell,2,8,12,75,2.5,,0.0,false,0.0,10.0,Biceps,Forearms,"Elbow pinned against preacher pad, no swinging",false
+7,Smith Overhead Press,machine,3,6,10,150,2.5,,0.0,true,0.0,,Front Delts,"Triceps, Upper Chest","Seat upright or 85 deg, lower to upper chest/chin",false
+8,Weighted Dip,bodyweight,3,6,10,150,2.5,,0.0,true,1.0,,Chest,"Triceps, Front Delts","Slight forward torso lean for chest emphasis, 90 deg elbow depth",false
+9,Lat Pulldown,cable,3,8,12,75,5.0,,0.0,false,0.0,,Lats,Biceps,"Thigh pad snug, pull to clavicle with elbows tucked",false
+10,Rear Delt Fly/Face Pull,cable,2,12,20,75,5.0,,0.0,false,0.0,,Rear Delts,Upper Back,"Pull rope toward eyes/forehead, rotate wrists out",false
+11,Hammer Curl,dumbbell,2,8,12,75,2.5,,0.0,false,0.0,10.0,Biceps,Forearms,"Neutral palms, thumbs pointing up throughout curl",false
+12,Overhead Triceps Extension,cable,2,8,12,75,5.0,,0.0,false,0.0,,Triceps,,"Set cable at shoulder height, extend forward overhead",false
+13,Hack Squat,machine,3,6,10,150,5.0,,0.0,true,0.0,,Quads,Glutes,"Feet low-to-mid platform, deep knee flexion, back pressed to pad",false
+14,Romanian Deadlift,barbell,3,6,10,150,2.5,,0.0,true,0.0,,Hamstrings,"Glutes, Lower Back","Soft knees, hinge hips back until deep hamstring stretch",false
+15,Calf Raise,machine,3,8,15,75,5.0,,0.0,false,0.0,,Calves,,"2s pause at deep bottom stretch, 1s peak squeeze",false
+16,Decline Crunch,bodyweight,3,12,20,75,2.5,,0.0,false,0.0,10.0,Abs,,"Steep decline. Spinal flexion only: curl ribs to pelvis, stop when lower back lifts, don't sit up fully. Start bodyweight, then hold a dumbbell at chest.",false
+17,Hanging Leg Raise,bodyweight,2,8,15,75,0.0,,0.0,false,0.0,,Abs,,"Curl pelvis toward ribs, avoid excessive body swing",true
+18,Leg Extension,machine,2,10,15,75,5.0,,0.0,false,0.0,,Quads,,"Align knee axis with machine pivot point",true
+19,Deadlift,barbell,2,5,5,180,2.5,,0.0,true,0.0,,Hamstrings,"Glutes, Back","Bar over mid-foot, brace lats and core before pull",false
+20,Leg Press,machine,3,8,12,150,5.0,,0.0,true,0.0,,Quads,Glutes,"Full depth without pelvis lifting off back pad",false
+21,Reverse Hamstring Curl,machine,3,8,12,75,5.0,,0.0,false,0.0,,Hamstrings,,"Keep hips flat against pad, curl heels to glutes",false
+22,Cable Crunch,cable,3,10,15,75,5.0,5.0,0.0,false,0.0,,Abs,,"Kneel facing the stack, bar behind head, hips fixed. Round spine to pull ribs toward pelvis. No hip hinge, don't sit back on heels.",false

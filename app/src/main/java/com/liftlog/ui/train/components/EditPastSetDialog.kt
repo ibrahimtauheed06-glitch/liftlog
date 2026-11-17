@@ -51,7 +51,9 @@ fun EditPastSetDialog(
 ) {
     var weightText by remember { mutableStateOf(set.weightKg.toString()) }
     var repsText by remember { mutableStateOf(set.reps.toString()) }
-    var rpeText by remember { mutableStateOf(set.rpe?.toString() ?: "") }
+    var rpeText by remember {
+        mutableStateOf(set.rpe?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
+    }
     var type by remember { mutableStateOf(set.type) }
     var flagSwung by remember { mutableStateOf(set.flagSwung) }
     var flagPain by remember { mutableStateOf(set.flagPain) }

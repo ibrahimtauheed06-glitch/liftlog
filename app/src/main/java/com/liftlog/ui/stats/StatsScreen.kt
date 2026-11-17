@@ -182,6 +182,20 @@ fun StatsScreen(
                                         color = if (state.sessionsDone >= state.sessionsTarget) SuccessGreen else TextPrimary
                                     )
                                 )
+                                Text("target", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            }
+
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Avg Time", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    state.averageWorkoutDurationText,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = SuccessGreen
+                                    )
+                                )
+                                Text("per workout", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                             }
 
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -195,9 +209,9 @@ fun StatsScreen(
                                     )
                                 )
                                 val proteinSubtitle = if (state.proteinDaysTracked > 0) {
-                                    "${state.proteinDaysHit}/${state.proteinDaysTracked} days hit"
+                                    "${state.proteinDaysHit}/${state.proteinDaysTracked} hit"
                                 } else {
-                                    "0 days hit"
+                                    "0 hit"
                                 }
                                 Text(
                                     proteinSubtitle,
